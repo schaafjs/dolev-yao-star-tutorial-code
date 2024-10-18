@@ -1,6 +1,6 @@
 # DY_HOME ?= ../../..
 
-EXAMPLE_DIRS = ../ .
+EXAMPLE_DIRS = . ../../dy-extensions
 include $(DY_HOME)/Makefile
 
 
