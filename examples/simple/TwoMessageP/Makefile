@@ -1,4 +1,6 @@
-DY_HOME ?= ../../..
+# DY_HOME ?= ../../..
+
+EXAMPLE_DIRS = ../ .
 include $(DY_HOME)/Makefile
 
 test:

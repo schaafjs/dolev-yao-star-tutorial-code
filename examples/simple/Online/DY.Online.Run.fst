@@ -7,6 +7,7 @@ open DY.Online.Run.Printing
 open DY.Online.Protocol
 
 let run () : traceful (option unit ) =
+  let _ = IO.debug_print_string "************* Trace *************\n" in
   let alice = "alice" in
   let bob = "bob" in
 
@@ -20,4 +21,5 @@ let run () : traceful (option unit ) =
     ) in
 
   return (Some ())
-  
+
+let _ = run () Nil
