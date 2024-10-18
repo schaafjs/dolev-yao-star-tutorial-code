@@ -5,6 +5,7 @@ open DY.Core
 open DY.Lib
 
 open DY.Simplified
+open DY.Extend
 
 /// A simple 2 message protocol
 ///
