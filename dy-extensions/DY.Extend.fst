@@ -272,12 +272,12 @@ let lookup_tagged_state_pred the_tag prin p tr =
 
 val lookup_tagged_state_invariant:
   {|protocol_invariants|} ->
-  tag:string -> spred:local_bytes_state_predicate ->
+  tag:string -> spred:local_bytes_state_predicate tag ->
   prin:principal -> p:(bytes -> bool) -> tr:trace ->
   Lemma
   (requires
     trace_invariant tr /\
-    has_local_bytes_state_predicate (tag, spred)
+    has_local_bytes_state_predicate (|tag, spred|)
   )
   (ensures (
     let (opt_content, tr_out) = lookup_tagged_state tag prin p tr in
@@ -292,7 +292,7 @@ val lookup_tagged_state_invariant:
   ))
   [SMTPat (lookup_tagged_state tag prin p tr);
    SMTPat (trace_invariant tr);
-   SMTPat (has_local_bytes_state_predicate (tag, spred))]
+   SMTPat (has_local_bytes_state_predicate (|tag, spred|))]
 let lookup_tagged_state_invariant #invs the_tag spred prin p tr =
   reveal_opaque (`%has_local_bytes_state_predicate) (has_local_bytes_state_predicate);
   let (opt_content, tr_out) = lookup_tagged_state the_tag prin p tr in
