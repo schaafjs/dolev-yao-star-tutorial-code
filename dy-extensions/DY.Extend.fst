@@ -16,6 +16,7 @@ val event_exists_grows:
   (ensures
     event_exists tr2 e
   )
+//  [SMTPat (event_exists tr1 e); SMTPat( tr1 <$ tr2)]
 let event_exists_grows tr1 tr2 e =  ()
 
 val last_entry_exists:
@@ -311,6 +312,28 @@ let lookup_tagged_state_invariant #invs the_tag spred prin p tr =
       let (Some (full_content_bytes, sid), tr) = core_lookup_state prin p_ tr in
       local_eq_global_lemma split_local_bytes_state_predicate_params state_pred.pred the_tag spred (tr, prin, sid, full_content_bytes) the_tag (tr, prin, sid, content)
      )
+
+
+val get_state_state_was_set_typed:
+  #a:Type -> {|local_state a|} ->
+  prin:principal -> sess_id:state_id -> tr:trace ->
+  Lemma
+  (ensures (
+    let (opt_content, tr_out) = get_state #a prin sess_id tr in
+    tr == tr_out /\ (
+      match opt_content with
+      | None -> True
+      | Some content -> (
+         DY.Lib.state_was_set tr prin sess_id content
+      )
+    )
+  )
+  )
+  [SMTPat (get_state #a prin sess_id tr)]
+let get_state_state_was_set_typed #a prin sess_id tr =
+  reveal_opaque (`%get_state) (get_state #a);
+  reveal_opaque (`%state_was_set) (state_was_set #a)
+
 
 /// Lookup the most recent state of a principal that satisfys some property.
 
