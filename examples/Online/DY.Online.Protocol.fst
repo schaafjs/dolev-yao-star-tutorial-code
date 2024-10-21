@@ -109,71 +109,62 @@ instance local_state_state: local_state state = {
   format = parseable_serializeable_bytes_state;
 }
 
+
+type global_sess_ids = {
+  pki: state_id;
+  private_keys: state_id;
+}
+
 (*** The Protocol ***)
 
-val send_ping: principal -> principal -> traceful (state_id & timestamp)
-let send_ping alice bob =
+let key_tag = "P.PublicKey"
+
+val send_ping: principal -> principal -> state_id -> traceful (option (state_id & timestamp))
+let send_ping alice bob keys_sid =
   // TODO: use public/secret for this label? 
   // or already explain high-level idea of "intended readers"?
   let* n_a = mk_rand NoUsage (join (principal_label alice) (principal_label bob)) 32 in
   let ping = Ping {p_alice = alice; p_n_a = n_a} in 
-  let* msg_ts = send_msg (serialize message ping) in
-  // TODO: add `start_new_session` to API
-  // hiding `new_session_id`
-  let* sess_id = new_session_id alice in
-  set_state alice sess_id (SentPing {sp_bob = bob; sp_n_a = n_a} <: state);*
-  return (sess_id, msg_ts)
+  let*? ping_encrypted = pk_enc_for alice bob keys_sid key_tag ping in
+  // let* msg_ts = send_msg (serialize message ping) in
+  let* msg_ts = send_msg ping_encrypted in
+  let* sid = start_new_session alice (SentPing {sp_bob = bob; sp_n_a = n_a}) in
+  return (Some (sid, msg_ts))
 
 
-val decode_ping : bytes -> option ping_t
-let decode_ping msg =
-  let? png = parse message msg in
-  guard (Ping? png);?
-  assert(Ping? png);
-  Some (Ping?.msg png)
+val decode_ping : principal -> state_id -> bytes -> traceful (option ping_t)
+let decode_ping bob keys_sid msg =
+  // let? png = parse message msg in
+  let*? png = pk_dec_with_key_lookup #message bob keys_sid key_tag msg in
+  guard_tr (Ping? png);*?
+  return (Some (Ping?.msg png))
 
-val receive_ping_and_send_ack: principal -> timestamp -> traceful (option state_id)
-let receive_ping_and_send_ack bob msg_ts =
+val receive_ping_and_send_ack: principal -> global_sess_ids -> timestamp -> traceful (option (state_id & timestamp))
+let receive_ping_and_send_ack bob global_sids msg_ts =
   let*? msg = recv_msg msg_ts in
-  let*? png = return (decode_ping msg) in
-  let* sess_id = new_session_id bob in
-  set_state bob sess_id (SentAck {sa_alice = png.p_alice; sa_n_a = png.p_n_a});*
-  return (Some sess_id)
-
-
-val receive_ping_and_send_ack_: principal -> timestamp -> traceful (option state_id)
-let receive_ping_and_send_ack_ bob msg_ts =
-  let*? msg = recv_msg msg_ts in
-  match*? return (parse message msg) with
-  | Ping png -> (
-      let* sess_id = new_session_id bob in
-      set_state bob sess_id (SentAck {sa_alice = png.p_alice; sa_n_a = png.p_n_a});*
-      return (Some sess_id)
-  )
-  | _ -> return None
-
-
-
-val receive_ping_and_send_ack___: principal -> timestamp -> traceful (option (state_id & timestamp))
-let receive_ping_and_send_ack___ bob msg_ts =
-  let*? msg = recv_msg msg_ts in
-  let*? png_ = return (parse message msg) in
-  guard_tr (Ping? png_);*?
-  let Ping png = png_ in
+  let*? png = decode_ping bob global_sids.private_keys msg in
   let n_a = png.p_n_a in
+  let alice = png.p_alice in
+
   let ack = Ack {a_n_a = n_a} in
-  let* ack_ts = send_msg (serialize message ack) in
-  let* sess_id = new_session_id bob in
-  set_state bob sess_id (SentAck {sa_alice = png.p_alice; sa_n_a = png.p_n_a});*
+  let*? ack_encrypted = pk_enc_for bob alice global_sids.pki key_tag ack in
+  let* ack_ts = send_msg ack_encrypted in
+  
+  let* sess_id = start_new_session bob (SentAck {sa_alice = png.p_alice; sa_n_a = png.p_n_a}) in
   return (Some (sess_id, ack_ts))
 
 
-val receive_ack: principal -> timestamp -> traceful (option state_id)
-let receive_ack alice ack_ts =
-  let*? ack = recv_msg ack_ts in
-  let*? ack = return (parse message ack) in
+val decode_ack : principal -> state_id -> bytes -> traceful (option ack)
+let decode_ack alice keys_sid cipher =
+  let*? ack = pk_dec_with_key_lookup #message alice keys_sid key_tag cipher in
   guard_tr (Ack? ack);*?
-  let Ack ack = ack in
+  return (Some (Ack?.msg ack))
+
+val receive_ack: principal -> state_id -> timestamp -> traceful (option state_id)
+let receive_ack alice keys_sid ack_ts =
+  let*? msg = recv_msg ack_ts in
+//  let*? ack = return (parse message ack) in
+  let*? ack = decode_ack alice keys_sid msg in
 
   let*? (st, sid) = lookup_state #state alice
     (fun st -> SentPing? st && (SentPing?.ping st).sp_n_a = ack.a_n_a)
