@@ -3,6 +3,9 @@ module DY.Example.NSL.Protocol.Stateful.Proof
 open Comparse
 open DY.Core
 open DY.Lib
+
+open DY.Extend
+
 open DY.Example.NSL.Protocol.Total
 open DY.Example.NSL.Protocol.Total.Proof
 open DY.Example.NSL.Protocol.Stateful
@@ -68,7 +71,7 @@ let state_predicate_nsl: local_state_predicate nsl_session = {
 let all_sessions = [
   pki_tag_and_invariant;
   private_keys_tag_and_invariant;
-  (local_state_nsl_session.tag, local_state_predicate_to_local_bytes_state_predicate state_predicate_nsl);
+  (|local_state_nsl_session.tag, local_state_predicate_to_local_bytes_state_predicate state_predicate_nsl|);
 ]
 
 /// The (local) event predicate.
@@ -110,7 +113,7 @@ instance protocol_invariants_nsl: protocol_invariants = {
 
 val all_sessions_has_all_sessions: unit -> Lemma (norm [delta_only [`%all_sessions; `%for_allP]; iota; zeta] (for_allP (has_local_bytes_state_predicate #protocol_invariants_nsl) all_sessions))
 let all_sessions_has_all_sessions () =
-  assert_norm(List.Tot.no_repeats_p (List.Tot.map fst (all_sessions)));
+  assert_norm(List.Tot.no_repeats_p (List.Tot.map dfst (all_sessions)));
   mk_state_pred_correct #protocol_invariants_nsl all_sessions;
   norm_spec [delta_only [`%all_sessions; `%for_allP]; iota; zeta] (for_allP (has_local_bytes_state_predicate #protocol_invariants_nsl) all_sessions)
 
@@ -164,10 +167,11 @@ val send_msg1_proof:
 let send_msg1_proof tr global_sess_id alice sess_id =
   match get_state alice sess_id tr with
   | (Some (InitiatorSendingMsg1 bob n_a), tr) -> (
-    match get_public_key alice global_sess_id.pki (PkEnc "NSL.PublicKey") bob tr with
+      assert(state_was_set_some_id tr alice (InitiatorSendingMsg1 bob n_a));
+    match get_public_key alice global_sess_id.pki (LongTermPkEncKey "NSL.PublicKey") bob tr with
     | (None, tr) -> ()
     | (Some pk_b, tr) -> (
-      let (nonce, tr) = mk_rand PkNonce (principal_label alice) 32 tr in
+      let (nonce, tr) = mk_rand PkNonce (long_term_key_label alice) 32 tr in
       compute_message1_proof tr alice bob pk_b n_a nonce
     )
   )
@@ -188,12 +192,14 @@ let send_msg1__proof tr global_sess_id alice bob =
   let (sess_id, _) = new_session_id alice tr in
   let st = InitiatorSendingMsg1 bob n_a in
   let (_ , tr_state) = set_state alice sess_id st tr in
+  set_state_state_was_set alice sess_id st tr;
+  assert(state_was_set_some_id tr_state alice (InitiatorSendingMsg1 bob n_a));
 
-  match get_public_key alice global_sess_id.pki (PkEnc "NSL.PublicKey") bob tr_state with
+  match get_public_key alice global_sess_id.pki (LongTermPkEncKey "NSL.PublicKey") bob tr_state with
     | (None, tr) -> ()
     | (Some pk_b, tr) -> (
     
-      let (nonce, tr) = mk_rand PkNonce (principal_label alice) 32 tr in
+      let (nonce, tr) = mk_rand PkNonce (long_term_key_label alice) 32 tr in
       compute_message1_proof tr alice bob pk_b n_a nonce;
       
   ()
@@ -212,7 +218,7 @@ let prepare_msg2_proof tr global_sess_id bob msg_id =
   match recv_msg msg_id tr with
   | (None, tr) -> ()
   | (Some msg, tr) -> (
-    match get_private_key bob global_sess_id.private_keys (PkDec "NSL.PublicKey") tr with
+    match get_private_key bob global_sess_id.private_keys (LongTermPkEncKey "NSL.PublicKey") tr with
     | (None, tr) -> ()
     | (Some sk_b, tr) -> (
       decode_message1_proof tr bob msg sk_b
@@ -231,10 +237,11 @@ val send_msg2_proof:
 let send_msg2_proof tr global_sess_id bob sess_id =
   match get_state bob sess_id tr with
   | (Some (ResponderSendingMsg2 alice n_a n_b), tr) -> (
-    match get_public_key bob global_sess_id.pki (PkEnc "NSL.PublicKey") alice tr with
+    assert(state_was_set_some_id tr bob (ResponderSendingMsg2 alice n_a n_b));
+    match get_public_key bob global_sess_id.pki (LongTermPkEncKey "NSL.PublicKey") alice tr with
     | (None, tr) -> ()
     | (Some pk_a, tr) -> (
-      let (nonce, tr) = mk_rand PkNonce (principal_label bob) 32 tr in
+      let (nonce, tr) = mk_rand PkNonce (long_term_key_label bob) 32 tr in
       compute_message2_proof tr bob {n_a; alice;} pk_a n_b nonce
     )
   )
@@ -253,7 +260,7 @@ let send_msg2__proof tr global_sess_id bob msg_id =
   match recv_msg msg_id tr with
   | (None, tr) -> ()
   | (Some msg, tr) -> (
-    match get_private_key bob global_sess_id.private_keys (PkDec "NSL.PublicKey") tr with
+    match get_private_key bob global_sess_id.private_keys (LongTermPkEncKey "NSL.PublicKey") tr with
     | (None, tr) -> ()
     | (Some sk_b, tr) -> (
       decode_message1_proof tr bob msg sk_b;
@@ -267,10 +274,12 @@ let send_msg2__proof tr global_sess_id bob msg_id =
     let st = ResponderSendingMsg2 msg1.alice msg1.n_a n_b in
     let (sess_id, _) = new_session_id bob tr in
     let (_, tr_st) = set_state bob sess_id st tr in
-    match get_public_key bob global_sess_id.pki (PkEnc "NSL.PublicKey") alice tr_st with
+//    set_state_state_was_set bob sess_id st tr_st;
+    assert(state_was_set_some_id tr_st bob st);
+    match get_public_key bob global_sess_id.pki (LongTermPkEncKey "NSL.PublicKey") alice tr_st with
     | (None, tr) -> ()
     | (Some pk_a, tr) -> (
-      let (nonce, tr) = mk_rand PkNonce (principal_label bob) 32 tr in
+      let (nonce, tr) = mk_rand PkNonce (long_term_key_label bob) 32 tr in
       compute_message2_proof tr bob {n_a; alice;} pk_a n_b nonce
     )
   ))
@@ -289,7 +298,7 @@ let prepare_msg3_proof tr global_sess_id alice sess_id msg_id =
   match recv_msg msg_id tr with
   | (None, tr) -> ()
   | (Some msg, tr) -> (
-    match get_private_key alice global_sess_id.private_keys (PkDec "NSL.PublicKey") tr with
+    match get_private_key alice global_sess_id.private_keys (LongTermPkEncKey "NSL.PublicKey") tr with
     | (None, tr) -> ()
     | (Some sk_a, tr) -> (
       match get_state alice sess_id tr with
@@ -313,7 +322,7 @@ let prepare_msg3__proof tr global_sess_id alice msg_id =
   match recv_msg msg_id tr with
   | (None, tr) -> ()
   | (Some msg, tr) -> (
-    match get_private_key alice global_sess_id.private_keys (PkDec "NSL.PublicKey") tr with
+    match get_private_key alice global_sess_id.private_keys (LongTermPkEncKey "NSL.PublicKey") tr with
     | (None, tr) -> ()
     | (Some sk_a, tr) -> (
         match decode_message2_ alice msg sk_a with
@@ -344,10 +353,11 @@ val send_msg3_proof:
 let send_msg3_proof tr global_sess_id alice sess_id =
   match get_state alice sess_id tr with
   | (Some (InitiatorSendingMsg3 bob n_a n_b), tr) -> (
-    match get_public_key alice global_sess_id.pki (PkEnc "NSL.PublicKey") bob tr with
+    assert(state_was_set_some_id tr alice (InitiatorSendingMsg3 bob n_a n_b));
+    match get_public_key alice global_sess_id.pki (LongTermPkEncKey "NSL.PublicKey") bob tr with
     | (None, tr) -> ()
     | (Some pk_b, tr) -> (
-      let (nonce, tr) = mk_rand PkNonce (principal_label alice) 32 tr in
+      let (nonce, tr) = mk_rand PkNonce (long_term_key_label alice) 32 tr in
       compute_message3_proof tr alice bob pk_b n_b nonce
     )
   )
@@ -368,7 +378,7 @@ let send_msg3__proof tr global_sess_id alice msg_id =
     match recv_msg msg_id tr with
   | (None, tr) -> ()
   | (Some msg, tr) -> (
-    match get_private_key alice global_sess_id.private_keys (PkDec "NSL.PublicKey") tr with
+    match get_private_key alice global_sess_id.private_keys (LongTermPkEncKey "NSL.PublicKey") tr with
     | (None, tr) -> ()
     | (Some sk_a, tr) -> (
         match decode_message2_ alice msg sk_a with
@@ -386,10 +396,11 @@ let send_msg3__proof tr global_sess_id alice msg_id =
         let InitiatorSendingMsg1 bob n_a = st in
         let new_st = InitiatorSendingMsg3 bob n_a n_b in
         let (_, tr_state) = set_state alice sid new_st tr in
-    match get_public_key alice global_sess_id.pki (PkEnc "NSL.PublicKey") bob tr_state with
+        assert(state_was_set_some_id tr_state alice new_st);
+    match get_public_key alice global_sess_id.pki (LongTermPkEncKey "NSL.PublicKey") bob tr_state with
     | (None, tr) -> ()
     | (Some pk_b, tr) -> (
-      let (nonce, tr) = mk_rand PkNonce (principal_label alice) 32 tr in
+      let (nonce, tr) = mk_rand PkNonce (long_term_key_label alice) 32 tr in
       compute_message3_proof tr alice bob pk_b n_b nonce
     )
   ))
@@ -425,7 +436,7 @@ let receive_msg3_proof tr global_sess_id bob sess_id msg_id =
   match recv_msg msg_id tr with
   | (None, tr) -> ()
   | (Some msg, tr) -> (
-    match get_private_key bob global_sess_id.private_keys (PkDec "NSL.PublicKey") tr with
+    match get_private_key bob global_sess_id.private_keys (LongTermPkEncKey "NSL.PublicKey") tr with
     | (None, tr) -> ()
     | (Some sk_b, tr) -> (
         match decode_message3_ msg sk_b with
