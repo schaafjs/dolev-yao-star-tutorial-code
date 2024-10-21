@@ -5,6 +5,7 @@ open DY.Core
 open DY.Lib
 
 open DY.Simplified
+open DY.Extend
 
 /// A simple 2 message protocol
 ///
@@ -117,11 +118,8 @@ let send_ping alice bob =
   let* n_a = mk_rand NoUsage (join (principal_label alice) (principal_label bob)) 32 in
   let ping = Ping {p_alice = alice; p_n_a = n_a} in 
   let* msg_ts = send_msg (serialize message ping) in
-  // TODO: add `start_new_session` to API
-  // hiding `new_session_id`
-  let* sess_id = new_session_id alice in
-  set_state alice sess_id (SentPing {sp_bob = bob; sp_n_a = n_a} <: state);*
-  return (sess_id, msg_ts)
+  let* sid = start_new_session alice (SentPing {sp_bob = bob; sp_n_a = n_a}) in
+  return (sid, msg_ts)
 
 
 val decode_ping : bytes -> option ping_t
