@@ -13,6 +13,8 @@ let run () : traceful (option unit ) =
   let alice = "alice" in
   let bob = "bob" in
 
+  (*** PKI setup ***)
+
   // Generate private key for Alice
   let* alice_global_session_priv_key_id = initialize_private_keys alice in
   generate_private_key alice alice_global_session_priv_key_id (LongTermPkEncKey key_tag);*
@@ -40,9 +42,15 @@ let run () : traceful (option unit ) =
   let alice_global_session_ids: global_sess_ids = {pki=alice_global_session_pub_key_id; private_keys=alice_global_session_priv_key_id} in
   let bob_global_session_ids: global_sess_ids = {pki=bob_global_session_pub_key_id; private_keys=bob_global_session_priv_key_id} in
 
+
+  (*** The actual protocol run ***)
+
   let*? (alice_sid, ping_ts) = send_ping alice bob alice_global_session_pub_key_id in
   let*? (bob_sid, ack_ts) = receive_ping_and_send_ack bob bob_global_session_ids ping_ts in
   let*? _ = receive_ack alice alice_global_session_priv_key_id ack_ts in
+
+
+ (*** Printing the Trace ***)
 
   let* tr = get_trace in
   let _ = IO.debug_print_string (
