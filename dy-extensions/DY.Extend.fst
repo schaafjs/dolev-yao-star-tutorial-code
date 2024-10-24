@@ -5,73 +5,6 @@ open DY.Core
 open DY.Lib
 open DY.Core.Trace.Base
 
-val event_exists_grows:
-  #label_t:Type -> 
-  tr1:trace_ label_t -> tr2:trace_ label_t -> 
-  e:trace_event_ label_t ->
-  Lemma
-  (requires
-    tr1 <$ tr2 /\ event_exists tr1 e
-  )
-  (ensures
-    event_exists tr2 e
-  )
-//  [SMTPat (event_exists tr1 e); SMTPat( tr1 <$ tr2)]
-let event_exists_grows tr1 tr2 e =  ()
-
-val last_entry_exists:
-  #label_t:Type ->
-  tr:trace_ label_t ->
-  Lemma
-    (requires Snoc? tr )
-    (ensures (
-       let Snoc _ last = tr in
-       event_exists tr last
-    ))
-    [SMTPat (Snoc? tr)]
-let last_entry_exists tr = 
-  let Snoc _ last = tr in
-  assert(event_at tr (length tr - 1) last)
-
-
-val get_state_aux_state_was_set:
-  prin:principal -> sess_id:state_id -> tr:trace ->
-  Lemma
-  (ensures (
-    match get_state_aux prin sess_id tr with
-    | None -> True
-    | Some content -> 
-          state_was_set tr prin sess_id content
-  ))
-let rec get_state_aux_state_was_set prin sess_id tr =
-   match tr with
-  | Nil -> ()
-  | Snoc tr_init (SetState prin' sess_id' content) -> (
-    if prin = prin' && sess_id = sess_id' 
-    then ()
-    else get_state_aux_state_was_set prin sess_id tr_init
-  )
-  | Snoc tr_init _ ->
-         get_state_aux_state_was_set prin sess_id tr_init
-
-val get_state_state_was_set:
-  prin:principal -> sess_id:state_id -> tr:trace ->
-  Lemma
-  (ensures (
-    let (opt_content, tr_out) = DY.Core.get_state prin sess_id tr in
-    tr == tr_out /\ (
-      match opt_content with
-      | None -> True
-      | Some content -> 
-             state_was_set tr prin sess_id content
-    )
-  ))
-  [SMTPat (DY.Core.get_state prin sess_id tr)]
-let get_state_state_was_set prin sess_id tr =
-  reveal_opaque (`%DY.Core.get_state) DY.Core.get_state;
-  get_state_aux_state_was_set prin sess_id tr
-  
-
 
 /// Lookup the most recent state of a principal satisfying some property.
 /// Returns the state and corresponding state id,
@@ -180,21 +113,6 @@ val lookup_state_state_invariant:
 let lookup_state_state_invariant #invs prin p tr =
   lookup_state_aux_state_invariant prin p tr
 
-
-// val tagged_state_was_set_grows:
-//   tr1:trace -> tr2:trace ->
-//   tag:string -> p:principal -> sid:state_id -> cont:bytes ->
-//   Lemma
-//   (requires
-//      tr1 <$ tr2 /\ tagged_state_was_set tr1 tag p sid cont
-//   )
-//   (ensures
-//     tagged_state_was_set tr2 tag p sid cont
-//   )
-// let tagged_state_was_set_grows tr1 tr2 tag p sid cont = 
-//   reveal_opaque (`%tagged_state_was_set) tagged_state_was_set
-
-
 /// Lookup the most recent tagged state for a principal that satisfys some property.
 /// The property given as argument is on the _content_ of the state.
 
@@ -212,34 +130,6 @@ let lookup_tagged_state the_tag prin p =
         if (tag = the_tag)
         then return (Some (content, sid))
         else return None
-
-
-val get_tagged_state_state_was_set:
-  tag:string -> 
-  prin:principal -> sess_id:state_id -> tr:trace ->
-  Lemma
-  (ensures (
-    let (opt_content, tr_out) = get_tagged_state tag prin sess_id tr in
-    tr == tr_out /\ (
-      match opt_content with
-      | None -> True
-      | Some content -> (
-         tagged_state_was_set tr tag prin sess_id content
-      )
-    )
-  )
-  )
-  [SMTPat (get_tagged_state tag prin sess_id tr)]
-let get_tagged_state_state_was_set tag prin sess_id tr =
-  reveal_opaque (`%get_tagged_state) (get_tagged_state);
-  reveal_opaque (`%tagged_state_was_set) (tagged_state_was_set);
-  let (opt_content, tr_out) = get_tagged_state tag prin sess_id tr in
-  match opt_content with
-  | None -> ()
-  | Some cont -> (
-    let (Some full_cont_bytes, _) = DY.Core.get_state prin sess_id tr in
-    serialize_parse_inv_lemma #bytes tagged_state full_cont_bytes    
-  )
 
 val lookup_tagged_state_pred:
   tag:string ->
@@ -312,27 +202,6 @@ let lookup_tagged_state_invariant #invs the_tag spred prin p tr =
       let (Some (full_content_bytes, sid), tr) = core_lookup_state prin p_ tr in
       local_eq_global_lemma split_local_bytes_state_predicate_params state_pred.pred the_tag spred (tr, prin, sid, full_content_bytes) the_tag (tr, prin, sid, content)
      )
-
-
-val get_state_state_was_set_typed:
-  #a:Type -> {|local_state a|} ->
-  prin:principal -> sess_id:state_id -> tr:trace ->
-  Lemma
-  (ensures (
-    let (opt_content, tr_out) = get_state #a prin sess_id tr in
-    tr == tr_out /\ (
-      match opt_content with
-      | None -> True
-      | Some content -> (
-         DY.Lib.state_was_set tr prin sess_id content
-      )
-    )
-  )
-  )
-  [SMTPat (get_state #a prin sess_id tr)]
-let get_state_state_was_set_typed #a prin sess_id tr =
-  reveal_opaque (`%get_state) (get_state #a);
-  reveal_opaque (`%state_was_set) (state_was_set #a)
 
 
 /// Lookup the most recent state of a principal that satisfys some property.
