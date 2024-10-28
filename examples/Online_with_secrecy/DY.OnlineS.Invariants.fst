@@ -25,22 +25,29 @@ open DY.OnlineS.Protocol
 
 instance crypto_usages_p : crypto_usages = default_crypto_usages
 
+#push-options "--ifuel 2 --fuel 0"
 let crypto_p : crypto_predicates = { 
   default_crypto_predicates with 
   pkenc_pred = { 
     pred = (fun tr sk_usage msg ->
     exists prin. (
-      match parse message msg with
+      // needed for `decode_ping_proof` [Why?]
+      sk_usage == long_term_key_type_to_usage (LongTermPkEncKey key_tag) prin /\
+      (match parse message msg with
       | Some (Ping ping) ->
           get_label tr ping.p_n_a == nonce_label ping.p_alice prin
+      | Some (Ack ack) ->
+          (exists alice.
+          get_label tr ack.a_n_a `can_flow tr` principal_label alice)
       | _ -> False
-      )
+      ))
       ); 
     pred_later = (fun tr1 tr2 pk msg -> 
       parse_wf_lemma message (bytes_well_formed tr1) msg
     ) 
   } 
 }
+#pop-options
 
 instance crypto_invariants_p: crypto_invariants = {
   usages = crypto_usages_p;
@@ -59,8 +66,8 @@ let state_predicate_p: local_state_predicate state = {
     )
     | SentAck ack -> (
       let bob = prin in
-      is_knowable_by (principal_label bob) tr ack.sa_n_a /\
-      is_secret (nonce_label ack.sa_alice bob) tr ack.sa_n_a
+      is_knowable_by (nonce_label ack.sa_alice bob) tr ack.sa_n_a
+      // is_secret (nonce_label ack.sa_alice bob) tr ack.sa_n_a
     )
     | ReceivedAck rack  -> (
       let alice = prin in
@@ -114,5 +121,5 @@ let protocol_invariants_p_has_p_session_invariant = all_sessions_has_all_session
 val protocol_invariants_p_has_pki_invariant: squash (has_pki_invariant #protocol_invariants_p)
 let protocol_invariants_p_has_pki_invariant = all_sessions_has_all_sessions ()
 
-// val protocol_invariants_p_has_private_keys_invariant: squash (has_private_keys_invariant #protocol_invariants_p)
-// let protocol_invariants_p_has_private_keys_invariant = all_sessions_has_all_sessions ()
+val protocol_invariants_p_has_private_keys_invariant: squash (has_private_keys_invariant #protocol_invariants_p)
+let protocol_invariants_p_has_private_keys_invariant = all_sessions_has_all_sessions ()
