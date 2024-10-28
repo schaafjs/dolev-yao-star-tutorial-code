@@ -5,6 +5,7 @@ open DY.Core
 open DY.Lib
 
 open DY.Simplified
+open DY.Extend
 
 open DY.OnlineS.Protocol
 open DY.OnlineS.Invariants
@@ -47,7 +48,6 @@ val decode_ping_proof:
   Lemma
   (requires (
     trace_invariant tr
-    /\ has_private_keys_invariant
     /\ bytes_invariant tr msg
   ))
   (ensures (
@@ -99,7 +99,7 @@ let receive_ping_and_send_ack_invariant bob bob_keys_sid msg_ts tr =
            | (None, _) -> ()
            | (Some ack_encrypted, tr_ack) ->(
                 assert(trace_invariant tr_ack);
-                let (ack_ts, tr_msg) = send_msg ack_encrypted tr_ack in
+                
                 serialize_wf_lemma message (bytes_invariant tr) (Ping png);
                 assert(bytes_invariant tr (serialize message (Ping png)));
                 serialize_wf_lemma message (bytes_invariant tr) (ack);
@@ -107,6 +107,7 @@ let receive_ping_and_send_ack_invariant bob bob_keys_sid msg_ts tr =
 
                 serialize_wf_lemma message (is_knowable_by (nonce_label alice bob) tr) (ack);
                 bytes_invariant_pk_enc_for tr bob alice bob_keys_sid.pki key_tag ack;
+                let (ack_ts, tr_msg) = send_msg ack_encrypted tr_ack in
                 assert(trace_invariant tr_msg);
                 let st = (SentAck {sa_alice = png.p_alice; sa_n_a = png.p_n_a}) in
                 let (sess_id, tr_sess) = start_new_session bob st tr_msg in
@@ -115,3 +116,29 @@ let receive_ping_and_send_ack_invariant bob bob_keys_sid msg_ts tr =
            )
       )
   )
+
+val receive_ack_invariant:
+  alice:principal -> keys_sid:state_id -> msg_ts:timestamp ->
+  tr:trace ->
+  Lemma
+  (requires
+    trace_invariant tr
+  )
+  (ensures (
+    let (_, tr_out) = receive_ack alice keys_sid msg_ts tr in
+    trace_invariant tr_out
+  ))
+let receive_ack_invariant alice keys_sid msg_ts tr =
+  match recv_msg msg_ts tr with
+  | (None, _ ) -> ()
+  | (Some msg, _) -> (
+      match decode_ack alice keys_sid msg tr with
+      | (None, _) -> ()
+      | (Some ack, tr_ack) -> (
+          let n_a = ack.a_n_a in
+          assert(trace_invariant tr_ack);
+          match lookup_state #state alice
+    (fun st -> SentPing? st && (SentPing?.ping st).sp_n_a = n_a) tr with
+          | (None, _) -> ()
+          | (Some (SentPing st, sid), _) -> ()
+  ))

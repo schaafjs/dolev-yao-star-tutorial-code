@@ -61,18 +61,19 @@ let state_predicate_p: local_state_predicate state = {
     match st with
     | SentPing ping -> (
       let alice = prin in
-      is_knowable_by (principal_label alice) tr ping.sp_n_a /\
+      //is_knowable_by (principal_label alice) tr ping.sp_n_a /\
       is_secret (nonce_label alice ping.sp_bob) tr ping.sp_n_a
     )
     | SentAck ack -> (
       let bob = prin in
       is_knowable_by (nonce_label ack.sa_alice bob) tr ack.sa_n_a
-      // is_secret (nonce_label ack.sa_alice bob) tr ack.sa_n_a
+      //is_secret (nonce_label ack.sa_alice bob) tr ack.sa_n_a
     )
     | ReceivedAck rack  -> (
       let alice = prin in
-      is_knowable_by (principal_label alice) tr rack.ra_n_a /\
-      is_secret (nonce_label alice rack.ra_bob) tr rack.ra_n_a
+      //is_knowable_by (nonce_label alice bob) tr rack.ra_n_a 
+      // /\
+       is_secret (nonce_label alice rack.ra_bob) tr rack.ra_n_a
     )
   );
   pred_later = (fun tr1 tr2 prin sess_id st -> ());

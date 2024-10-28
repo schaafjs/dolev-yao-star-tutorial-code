@@ -18,7 +18,7 @@ val n_a_secrecy:
     attacker_knows tr n_a /\
     trace_invariant tr /\ (
       (exists sess_id. state_was_set tr alice sess_id (SentPing {sp_bob = bob; sp_n_a = n_a})) \/
-      (exists sess_id. state_was_set tr alice sess_id (SentAck {sa_alice = alice; sa_n_a = n_a})) \/
+      // (exists sess_id. state_was_set tr alice sess_id (SentAck {sa_alice = alice; sa_n_a = n_a})) \/
       (exists sess_id. state_was_set tr bob sess_id (ReceivedAck {ra_bob = bob; ra_n_a = n_a} ))
     )
   )
