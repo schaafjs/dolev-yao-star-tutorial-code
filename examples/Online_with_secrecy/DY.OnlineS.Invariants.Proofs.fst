@@ -41,7 +41,6 @@ let send_ping_invariant alice bob keys_sid  tr =
   )
 
 val decode_ping_proof:
-  // {|protocol_invariants|} ->
   tr:trace ->
   bob:principal -> keys_sid:state_id ->
   msg:bytes ->
@@ -111,7 +110,6 @@ let receive_ping_and_send_ack_invariant bob bob_keys_sid msg_ts tr =
                 assert(trace_invariant tr_msg);
                 let st = (SentAck {sa_alice = png.p_alice; sa_n_a = png.p_n_a}) in
                 let (sess_id, tr_sess) = start_new_session bob st tr_msg in
-                //assume(state_predicate_p.pred tr_msg bob sess_id st);
                 assert(trace_invariant tr_sess)
            )
       )

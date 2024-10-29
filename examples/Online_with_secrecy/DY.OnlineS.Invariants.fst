@@ -30,15 +30,18 @@ let crypto_p : crypto_predicates = {
   default_crypto_predicates with 
   pkenc_pred = { 
     pred = (fun tr sk_usage msg ->
-    exists prin. (
+    exists prin. // the intended receiver of the message
+    (
       // needed for `decode_ping_proof` [Why?]
       sk_usage == long_term_key_type_to_usage (LongTermPkEncKey key_tag) prin /\
       (match parse message msg with
       | Some (Ping ping) ->
-          get_label tr ping.p_n_a == nonce_label ping.p_alice prin
+          let bob = prin in
+          let alice = ping.p_alice in
+          get_label tr ping.p_n_a == nonce_label alice bob
       | Some (Ack ack) ->
-          (exists alice.
-          get_label tr ack.a_n_a `can_flow tr` principal_label alice)
+          let alice = prin in
+          get_label tr ack.a_n_a `can_flow tr` principal_label alice
       | _ -> False
       ))
       ); 
@@ -61,7 +64,6 @@ let state_predicate_p: local_state_predicate state = {
     match st with
     | SentPing ping -> (
       let alice = prin in
-      //is_knowable_by (principal_label alice) tr ping.sp_n_a /\
       is_secret (nonce_label alice ping.sp_bob) tr ping.sp_n_a
     )
     | SentAck ack -> (
@@ -71,8 +73,6 @@ let state_predicate_p: local_state_predicate state = {
     )
     | ReceivedAck rack  -> (
       let alice = prin in
-      //is_knowable_by (nonce_label alice bob) tr rack.ra_n_a 
-      // /\
        is_secret (nonce_label alice rack.ra_bob) tr rack.ra_n_a
     )
   );
