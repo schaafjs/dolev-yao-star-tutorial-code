@@ -12,6 +12,10 @@ open DY.OnlineS.Invariants
 
 #set-options "--fuel 0 --ifuel 1 --z3rlimit 25  --z3cliopt 'smt.qi.eager_threshold=100'"
 
+/// In this module,
+/// we show that every protocol step maintains the protocol invariants.
+
+
 val send_ping_invariant:
   alice:principal -> bob:principal -> keys_sid:state_id ->
   tr:trace ->

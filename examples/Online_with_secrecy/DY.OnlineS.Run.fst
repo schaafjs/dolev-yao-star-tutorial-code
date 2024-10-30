@@ -6,47 +6,68 @@ open DY.Lib
 open DY.OnlineS.Run.Printing
 open DY.OnlineS.Protocol
 
+/// Here, we print the trace after a successful run of the Two Message protocol.
+
+
 let run () : traceful (option unit ) =
   let _ = IO.debug_print_string "************* Trace *************\n" in
 
+  (*** Protocol Setup ***)
 
-  let alice = "alice" in
-  let bob = "bob" in
+  // the names of the participants
+  let alice = "Alice" in
+  let bob = "Bob" in
 
   (*** PKI setup ***)
 
-  // Generate private key for Alice
-  let* alice_global_session_priv_key_id = initialize_private_keys alice in
-  generate_private_key alice alice_global_session_priv_key_id (LongTermPkEncKey key_tag);*
+  // Initialize key storage for Alice
+  // private and public keys are stored in separate sessions
+  let* alice_priv_keys_sid = initialize_private_keys alice in
+  let* alice_pub_keys_sid = initialize_pki alice in
+  // we collect both session ids in a global record
+  let alice_global_session_ids : global_sess_ids = 
+    { pki = alice_pub_keys_sid; 
+      private_keys = alice_priv_keys_sid
+    } in
+
+  // Initialize key storage for Bob
+  let* bob_priv_keys_sid = initialize_private_keys bob in
+  let* bob_pub_keys_sid = initialize_pki bob in  
+  let bob_global_session_ids: global_sess_ids = 
+    { pki = bob_pub_keys_sid; 
+      private_keys = bob_priv_keys_sid
+    } in
+
+  // Generate private key for Alice and store it in her private keys session
+  generate_private_key alice alice_global_session_ids.private_keys (LongTermPkEncKey key_tag);*
   
-  // Generate private key for Bob
-  let* bob_global_session_priv_key_id = initialize_private_keys bob in
-  generate_private_key bob bob_global_session_priv_key_id (LongTermPkEncKey key_tag);*
+  // Generate private key for Bob and store it in his private keys session
+  generate_private_key bob bob_global_session_ids.private_keys (LongTermPkEncKey key_tag);*
 
   // Store Bob's public key in Alice's state
-  // 1. Initialize Alice's session to store public keys
-  // 2. Retrieve Bob's private key from his session
-  // 3. Compute the public key from the private key
-  // 4. Install Bob's public key in Alice's public key store
-  let* alice_global_session_pub_key_id = initialize_pki alice in
-  let*? priv_key_bob = get_private_key bob bob_global_session_priv_key_id (LongTermPkEncKey key_tag) in
+  // Bob's public key is computed from his private key
+  // 1. Retrieve Bob's private key from his private key session
+  // 2. Compute the public key from the private key
+  // 3. Install Bob's public key in Alice's public key store
+  let*? priv_key_bob = get_private_key bob bob_global_session_ids.private_keys (LongTermPkEncKey key_tag) in
   let pub_key_bob = pk priv_key_bob in
-  install_public_key alice alice_global_session_pub_key_id (LongTermPkEncKey key_tag) bob pub_key_bob;*
+  install_public_key alice alice_global_session_ids.pki (LongTermPkEncKey key_tag) bob pub_key_bob;*
 
-  // Store Alice's public key in Bob's state
-  let* bob_global_session_pub_key_id = initialize_pki bob in
-  let*? priv_key_alice = get_private_key alice alice_global_session_priv_key_id (LongTermPkEncKey key_tag) in
+  // Store Alice's public key in Bob's state in the same way
+  let*? priv_key_alice = get_private_key alice alice_global_session_ids.private_keys (LongTermPkEncKey key_tag) in
   let pub_key_alice = pk priv_key_alice in
-  install_public_key bob bob_global_session_pub_key_id (LongTermPkEncKey key_tag) alice pub_key_alice;*
+  install_public_key bob bob_global_session_ids.pki (LongTermPkEncKey key_tag) alice pub_key_alice;*
 
-  let alice_global_session_ids: global_sess_ids = {pki=alice_global_session_pub_key_id; private_keys=alice_global_session_priv_key_id} in
-  let bob_global_session_ids: global_sess_ids = {pki=bob_global_session_pub_key_id; private_keys=bob_global_session_priv_key_id} in
 
 
   (*** The actual protocol run ***)
-  let*? (alice_sid, ping_ts) = send_ping alice bob alice_global_session_pub_key_id in
+
+  // Alice sends a Ping to Bob
+  let*? (alice_sid, ping_ts) = send_ping alice bob alice_global_session_ids.pki in
+  // Bob replies with an Ack (reading the ping at the given timestamp)
   let*? (bob_sid, ack_ts) = receive_ping_and_send_ack bob bob_global_session_ids ping_ts in
-  let*? _ = receive_ack alice alice_global_session_priv_key_id ack_ts in
+  // Alice receives the Ack (at the given ack timestamp)
+  let*? _ = receive_ack alice alice_global_session_ids.private_keys ack_ts in
 
 
  (*** Printing the Trace ***)
