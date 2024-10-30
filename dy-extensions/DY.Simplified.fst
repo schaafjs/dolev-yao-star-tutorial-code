@@ -9,6 +9,9 @@ open DY.Lib
 let gen_rand =
   mk_rand NoUsage public 32
 
+let gen_rand_labeled l =
+    mk_rand NoUsage l 32
+
 val start_new_session:
   #a:Type -> {| local_state a |} ->
   principal -> a ->
