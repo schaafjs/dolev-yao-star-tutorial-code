@@ -33,8 +33,8 @@ type ack = {
 
 [@@ with_bytes bytes] // ignore this line for now
 type message =
-  | Ping: (msg:ping_t) -> message
-  | Ack: (msg:ack) -> message
+  | Ping: ping_t -> message
+  | Ack: ack -> message
 
 
 /// We use Comparse to generate the corresponding message formats.
@@ -91,8 +91,8 @@ type received_ack = {
 [@@ with_bytes bytes]
 type state = 
   | SentPing: (ping:sent_ping) -> state
-  | SentAck: sent_ack -> state
-  | ReceivedAck: received_ack -> state
+  | SentAck: (ack:sent_ack) -> state
+  | ReceivedAck: (rack:received_ack) -> state
 
 /// As for messages, we use Comparse to generate
 /// a parser and serializer for our abstract state types.
@@ -164,7 +164,7 @@ let receive_ping_and_send_ack bob msg_ts =
   guard_tr (Ping? png_);*?
 
   // read the data (alice and n_a) from the received message
-  let Ping png = png_ in
+  let Ping png = png_ in // this "removes" the Ping constructor from png_
   let alice = png.p_alice in
   let n_a = png.p_n_a in
 
