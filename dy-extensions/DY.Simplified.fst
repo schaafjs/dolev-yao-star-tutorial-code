@@ -6,6 +6,9 @@ open DY.Lib
 
 #set-options "--fuel 0 --ifuel 1 --z3rlimit 25  --z3cliopt 'smt.qi.eager_threshold=100'"
 
+let gen_rand =
+  mk_rand NoUsage public 32
+
 val start_new_session:
   #a:Type -> {| local_state a |} ->
   principal -> a ->
