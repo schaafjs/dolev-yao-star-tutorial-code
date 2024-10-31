@@ -32,25 +32,25 @@ let pk_enc_for #a alice bob key_sid key_tag plaintext =
   let* nonce = mk_rand PkNonce (long_term_key_label alice) 32 in
   return ( Some (pk_enc pk_bob nonce (serialize a plaintext)))
 
-// val bytes_invariant_pk_enc_for:
-//   {|protocol_invariants|}->
-//   tr:trace ->
-//   #a:Type -> {|parseable_serializeable bytes a|} ->
-//   alice:principal -> bob:principal ->
-//   alice_pki_sid:state_id ->
-//   key_tag:string ->
-//   msg:a ->
-//   Lemma
-//   (requires
-//       trace_invariant tr
-//   )
-//   (ensures (
-//     let (_, tr_out) = pk_enc_for #a alice bob alice_pki_sid key_tag msg tr in
-//     trace_invariant tr_out
-//   ))
-// let bytes_invariant_pk_enc_for tr #a alice bob alice_pki_sid key_tag msg = ()
+val pk_enc_for_invariant:
+  {|protocol_invariants|}->
+  tr:trace ->
+  #a:Type -> {|parseable_serializeable bytes a|} ->
+  alice:principal -> bob:principal ->
+  alice_pki_sid:state_id ->
+  key_tag:string ->
+  msg:a ->
+  Lemma
+  (requires
+      trace_invariant tr
+  )
+  (ensures (
+    let (_, tr_out) = pk_enc_for #a alice bob alice_pki_sid key_tag msg tr in
+    trace_invariant tr_out
+  ))
+let pk_enc_for_invariant tr #a alice bob alice_pki_sid key_tag msg = ()
 
-val bytes_invariant_pk_enc_for:
+val pk_enc_for_is_publishable:
   {|protocol_invariants|} ->
   tr:trace ->
   #a:Type -> {|parseable_serializeable bytes a|} ->
@@ -77,7 +77,7 @@ val bytes_invariant_pk_enc_for:
     | (Some cipher, tr_out) -> 
         is_publishable tr_out cipher
   ))
-let bytes_invariant_pk_enc_for tr #a alice bob alice_pki_sid key_tag msg =
+let pk_enc_for_is_publishable tr #a alice bob alice_pki_sid key_tag msg =
   match pk_enc_for alice bob alice_pki_sid key_tag msg tr with
   | (None, _) -> ()
   | (Some cipher, tr_out) -> (
