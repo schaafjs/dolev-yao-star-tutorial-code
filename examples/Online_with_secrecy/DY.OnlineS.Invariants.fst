@@ -5,7 +5,7 @@ open DY.Core
 open DY.Lib
 open DY.OnlineS.Protocol
 
-#set-options "--fuel 0 --ifuel 1 --z3rlimit 25" //  --z3cliopt 'smt.qi.eager_threshold=100'"
+#set-options "--fuel 0 --ifuel 1 --z3rlimit 25"
 
 /// In this module, we define the protocol invariants.
 /// They consist of
@@ -25,7 +25,6 @@ open DY.OnlineS.Protocol
 
 
 (** TODO **)
-
 // needed for `crypto_prediates.pkenc_pred.pred_later`
 %splice [ps_ping_t_is_well_formed] (gen_is_well_formed_lemma (`ping_t))
 %splice [ps_ack_is_well_formed] (gen_is_well_formed_lemma (`ack))
@@ -35,7 +34,7 @@ open DY.OnlineS.Protocol
 // ignore this for now
 instance crypto_usages_p : crypto_usages = default_crypto_usages
 
-#push-options "--ifuel 2 --fuel 0"
+#push-options "--ifuel 2"
 let crypto_p : crypto_predicates = { 
   default_crypto_predicates with 
   // we restrict when a message is allowed to be encrypted 
@@ -72,7 +71,7 @@ let crypto_p : crypto_predicates = {
       | _ -> False // other messages can not be encrypted
       ))
       ); 
-    (* a lemma guaranteeing that
+    (* a lemma guaranteeing:
        if the predicate specified above holds for some trace tr1
        it also holds for any extension tr2 of tr1
     *)
@@ -93,7 +92,7 @@ instance crypto_invariants_p: crypto_invariants = {
 
 (*** State Invariant ***)
 
-
+// TODO
 // Needed for `state_predicate.pred_knowable`
 %splice [ps_sent_ping_is_well_formed] (gen_is_well_formed_lemma (`sent_ping))
 %splice [ps_sent_ack_is_well_formed] (gen_is_well_formed_lemma (`sent_ack))
@@ -101,8 +100,7 @@ instance crypto_invariants_p: crypto_invariants = {
 %splice [ps_state_is_well_formed] (gen_is_well_formed_lemma (`state))
 
 #push-options "--z3cliopt 'smt.qi.eager_threshold=50'"
-(* We restrict what states are allowed to be stored by principals
-*)
+(* We restrict what states are allowed to be stored by principals *)
 let state_predicate_p: local_state_predicate state = {
   pred = (fun tr prin sess_id st ->
     match st with
@@ -143,7 +141,7 @@ let state_predicate_p: local_state_predicate state = {
         is_secret (nonce_label alice bob) tr n_a
     )
   );
-  (* as for encryption we have a lemma guaranteeing that
+  (* as for encryption we have a lemma guaranteeing:
      if the state predicate holds on some trace tr1
      it also holds for any extension tr2 of tr2
   *)

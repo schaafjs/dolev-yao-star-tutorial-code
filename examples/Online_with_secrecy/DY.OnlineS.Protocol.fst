@@ -131,7 +131,6 @@ type global_sess_ids = {
 /// Similarly as for states,
 /// we tag the keys that are used on the protocol level,
 /// so that they can not be confused with other keys.
-/// (TODO: rephrase this)
 
 let key_tag = "P.Key"
 
@@ -146,7 +145,7 @@ let nonce_label alice bob = join (principal_label alice) (principal_label bob)
 /// * stores n_a and Bob in a state (in a new session)
 /// The step returns the ID of the new state
 /// and the timestamp of the message on the trace
-/// The step fails, if
+/// The step fails (returns None), if
 /// encryption was not successful, i.e.,
 /// Alice does not have a public key of Bob.
 
@@ -180,7 +179,7 @@ let send_ping alice bob keys_sid =
 /// * the message is not of the right type, i.e., not a first message
 /// * encryption fails
 
-/// Decrypting the message (Step 2 from above) is pulled out to a separate function
+/// Decrypting the message (Step 2 from above) is pulled out to a separate function.
 /// The function
 /// * decrypts the message
 /// * checks that the message is of the right type (a Ping)
@@ -190,7 +189,7 @@ let send_ping alice bob keys_sid =
 val decode_ping : principal -> state_id -> bytes -> traceful (option ping_t)
 let decode_ping bob keys_sid msg =
   // try to decrypt the message with
-  // a private key of bob with the protocol tag
+  // a private key of bob with the protocol key tag
   // (fails, if no such key exists)
   let*? png = pk_dec_with_key_lookup #message bob keys_sid key_tag msg in
   
@@ -260,12 +259,16 @@ let receive_ack alice keys_sid ack_ts =
   // decode the received expected ack
   let*? ack = decode_ack alice keys_sid msg in
 
+  let n_a = ack.a_n_a in
+  // try to find a previous session of alice that
+  // * is in a SentPing state and
+  // * the stored nonce is the received nonce
   let*? (st, sid) = lookup_state #state alice
-    (fun st -> SentPing? st && (SentPing?.ping st).sp_n_a = ack.a_n_a)
+    (fun st -> SentPing? st && (SentPing?.ping st).sp_n_a = n_a)
     in
   guard_tr(SentPing? st);*?
   let bob = (SentPing?.ping st).sp_bob in
 
-  set_state alice sid (ReceivedAck {ra_bob=bob; ra_n_a = ack.a_n_a});*
+  set_state alice sid (ReceivedAck {ra_bob=bob; ra_n_a = n_a});*
 
   return (Some sid)
