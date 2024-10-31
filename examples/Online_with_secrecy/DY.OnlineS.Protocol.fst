@@ -260,9 +260,6 @@ let receive_ack alice keys_sid ack_ts =
   let*? ack = decode_ack alice keys_sid msg in
 
   let n_a = ack.a_n_a in
-  // try to find a previous session of alice that
-  // * is in a SentPing state and
-  // * the stored nonce is the received nonce
   let*? (st, sid) = lookup_state #state alice
     (fun st -> SentPing? st && (SentPing?.ping st).sp_n_a = n_a)
     in
