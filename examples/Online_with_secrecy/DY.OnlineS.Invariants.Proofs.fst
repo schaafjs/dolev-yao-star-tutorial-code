@@ -199,7 +199,7 @@ let send_ping_invariant alice bob keys_sid  tr =
 
 (* The above proof was very detailed.
    In fact, most of the proof is done automatically by F*
-   and we can remove most of the asserts.
+   and we can remove all of the asserts.
 
    If we just keep the necessary calls to lemmas,
    we end up with the following very short proof.
@@ -285,7 +285,7 @@ let receive_ping_and_send_ack_invariant bob bob_keys_sid msg_ts tr =
                 assert(bytes_invariant tr (serialize message ack));
 
                 serialize_wf_lemma message (is_knowable_by (nonce_label alice bob) tr) (ack);
-                bytes_invariant_pk_enc_for tr bob alice bob_keys_sid.pki key_tag ack;
+                pk_enc_for_is_publishable tr bob alice bob_keys_sid.pki key_tag ack;
                 let (ack_ts, tr_msg) = send_msg ack_encrypted tr_ack in
                 assert(trace_invariant tr_msg);
                 let st = (SentAck {sa_alice = png.p_alice; sa_n_a = png.p_n_a}) in
