@@ -127,20 +127,29 @@ instance local_state_state: local_state state = {
 
 val send_ping: principal -> principal -> traceful (state_id & timestamp)
 let send_ping alice bob =
-  // generate a new nonce
-  let* n_a = gen_rand in
+  (* generate a new nonce *)
+  let* n_a = gen_rand in 
+  // let* is the monadic let-binding (i.e., bind) of the traceful monad
+  // This means, gen_rand implicitly takes a trace argument
+  // and modifies this trace.
+  // Using let*, the trace handling is conveniently not exposed.
 
-  // the abstract message (alice, n_a)
+  (* the abstract message (alice, n_a) *)
   let ping = Ping {p_alice = alice; p_n_a = n_a} in 
-  // send the message (serialize abstract to bytes first)
+  (* send the message (serialize abstract to bytes first) *)
   let* msg_ts = send_msg (serialize message ping) in
+  // Again this is a monadic let of the traceful monad.
+  // send_msg takes the modified trace from gen_rand 
+  // and modifies it.
 
-  // the abstract new state (bob, n_a)
+  (* the abstract new state (bob, n_a) *)
   let ping_state = SentPing {sp_bob = bob; sp_n_a = n_a} in
-  // start a new session with this new state
+  (* start a new session with this new state *)
   let* sid = start_new_session alice ping_state in
+  // Monadic let again.
+  // This takes the modified trace after send_msg as "hidden" argument.
 
-  // return the ID of the new session and the timestamp of the message
+  (* return the ID of the new session and the timestamp of the message *)
   return (sid, msg_ts)
 
 
@@ -155,13 +164,27 @@ let send_ping alice bob =
 
 val receive_ping_and_send_ack: principal -> timestamp -> traceful (option (state_id & timestamp))
 let receive_ping_and_send_ack bob msg_ts =
-  // receive the message
+  (* receive the message *)
   let*? msg = recv_msg msg_ts in 
-  // this returns bytes, so we need to translate to our abstract type:
-  let*? png_ = return (parse message msg) in
-  // check that the received message is of the right type
-  // (the whole step fails, if the message is not a Ping)
+  // This is a monadic let bindin of the traceful + option monad.
+  // That means, recv_msg
+  // * modifies the underlying trace
+  // * the return type is an option (None or Some)
+  // If this step, returns None,
+  // the whole `receive_ping_and_send_ack` function
+  // (calling `recv_msg`)
+  // will stop the execution at this point and return None as well.
+
+  (* recv_msg returns bytes, 
+     so we need to translate to our abstract message type: *)
+  let*? png_ = return (parse message msg) in // again monadic let of traceful + option
+  (* check that the received message is of the right type
+     (the whole step fails, if the message is not a Ping) *)
   guard_tr (Ping? png_);*?
+  // guard for the traceful + option monad.
+  // The execution continues only if the property is satisfied
+  // ;*? is sequential execution in the traceful + option monad:
+  // The rest is only executed if the guard_tr returns a Some
 
   // read the data (alice and n_a) from the received message
   let Ping png = png_ in // this "removes" the Ping constructor from png_
