@@ -132,7 +132,7 @@ let send_ping alice bob =
 
   // the abstract message (alice, n_a)
   let ping = Ping {p_alice = alice; p_n_a = n_a} in 
-  // send the message (serialize abstract to bytes first)
+  // send the message (serialize abstract to bytes first!)
   let* msg_ts = send_msg (serialize message ping) in
 
   // the abstract new state (bob, n_a)
@@ -168,9 +168,9 @@ let receive_ping_and_send_ack bob msg_ts =
   let alice = png.p_alice in
   let n_a = png.p_n_a in
 
-  // the reply (n_a)
+  // the abstract reply (n_a)
   let ack = Ack {a_n_a = n_a} in
-  // send the reply (serialize abstract to bytes first)
+  // send the reply (serialize abstract to bytes first!)
   let* ack_ts = send_msg (serialize message ack) in
 
   // the abstract new state storing alice and n_a from the message
