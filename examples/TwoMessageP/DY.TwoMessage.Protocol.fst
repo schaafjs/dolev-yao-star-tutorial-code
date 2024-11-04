@@ -18,13 +18,13 @@ open DY.Extend
 
 [@@ with_bytes bytes] // ignore this line for now
 type ping_t = {
-  p_alice: principal;
-  p_n_a : bytes;
+  alice: principal;
+  n_a : bytes;
 }
 
 [@@ with_bytes bytes] // ignore this line for now
-type ack = {
-  a_n_a : bytes;
+type ack_t = {
+  n_a : bytes;
 }
 
 /// the overall abstract message type
@@ -32,9 +32,9 @@ type ack = {
 /// and using the above abstract types for each of them)
 
 [@@ with_bytes bytes] // ignore this line for now
-type message =
-  | Ping: ping_t -> message
-  | Ack: ack -> message
+type message_t =
+  | Ping: ping_t -> message_t
+  | Ack: ack_t -> message_t
 
 
 /// We use Comparse to generate the corresponding message formats.
@@ -51,9 +51,9 @@ type message =
 
 /// ... and the same for the other abstract message types
 
-%splice [ps_ack] (gen_parser (`ack))
+%splice [ps_ack_t] (gen_parser (`ack_t))
 
-%splice [ps_message] (gen_parser (`message))
+%splice [ps_message_t] (gen_parser (`message_t))
 
 /// With the above parsers, we can make our `message` type an instance of
 /// Comparse's `parseable_serializeable` class.
@@ -62,7 +62,7 @@ type message =
 /// `parse message buff` and `serialize message msg`
 /// to translate between bytes and our abstract message type.
 
-instance parseable_serializeable_bytes_message: parseable_serializeable bytes message = mk_parseable_serializeable ps_message
+instance parseable_serializeable_bytes_message_t: parseable_serializeable bytes message_t = mk_parseable_serializeable ps_message_t
 
 
 (*** State Type ***)
@@ -71,49 +71,49 @@ instance parseable_serializeable_bytes_message: parseable_serializeable bytes me
 /// for the three states stored by Alice and Bob after each step of the protocol.
 
 [@@ with_bytes bytes]
-type sent_ping = {
-  sp_bob : principal;
-  sp_n_a : bytes;
+type sent_ping_t = {
+  bob : principal;
+  n_a : bytes;
 }
 
 [@@ with_bytes bytes]
-type sent_ack = {
-  sa_alice: principal;
-  sa_n_a : bytes;
+type sent_ack_t = {
+  alice: principal;
+  n_a : bytes;
 }
 
 [@@ with_bytes bytes]
-type received_ack = {
-  ra_bob : principal;
-  ra_n_a : bytes;
+type received_ack_t = {
+  bob : principal;
+  n_a : bytes;
 }
 
 [@@ with_bytes bytes]
-type state = 
-  | SentPing: (ping:sent_ping) -> state
-  | SentAck: (ack:sent_ack) -> state
-  | ReceivedAck: (rack:received_ack) -> state
+type state_t = 
+  | SentPing: (ping:sent_ping_t) -> state_t
+  | SentAck: (ack:sent_ack_t) -> state_t
+  | ReceivedAck: (rack:received_ack_t) -> state_t
 
 /// As for messages, we use Comparse to generate
 /// a parser and serializer for our abstract state types.
 
-%splice [ps_sent_ping] (gen_parser (`sent_ping))
-%splice [ps_sent_ack] (gen_parser (`sent_ack))
-%splice [ps_received_ack] (gen_parser (`received_ack))
-%splice [ps_state] (gen_parser (`state))
+%splice [ps_sent_ping_t] (gen_parser (`sent_ping_t))
+%splice [ps_sent_ack_t] (gen_parser (`sent_ack_t))
+%splice [ps_received_ack_t] (gen_parser (`received_ack_t))
+%splice [ps_state_t] (gen_parser (`state_t))
 
 /// Now, we can call
 /// `parse state buff` and `serialize state st`
 /// to translate between bytes and the abstract state type.
 
-instance parseable_serializeable_bytes_state: parseable_serializeable bytes state = mk_parseable_serializeable ps_state
+instance parseable_serializeable_bytes_state_t: parseable_serializeable bytes state_t = mk_parseable_serializeable ps_state_t
 
 /// We tag our protocol level states,
 /// so that they are distinguishable from any internal DY* states. 
 
-instance local_state_state: local_state state = {
+instance local_state_state: local_state state_t = {
   tag = "P.State";
-  format = parseable_serializeable_bytes_state;
+  format = parseable_serializeable_bytes_state_t;
 }
 
 (*** The Protocol ***)
@@ -131,12 +131,12 @@ let send_ping alice bob =
   let* n_a = gen_rand in
 
   // the abstract message (alice, n_a)
-  let ping = Ping {p_alice = alice; p_n_a = n_a} in 
+  let ping = Ping {alice = alice; n_a = n_a} in 
   // send the message (serialize abstract to bytes first!)
-  let* msg_ts = send_msg (serialize message ping) in
+  let* msg_ts = send_msg (serialize message_t ping) in
 
   // the abstract new state (bob, n_a)
-  let ping_state = SentPing {sp_bob = bob; sp_n_a = n_a} in
+  let ping_state = SentPing {bob = bob; n_a = n_a} in
   // start a new session with this new state
   let* sid = start_new_session alice ping_state in
 
@@ -158,23 +158,23 @@ let receive_ping_and_send_ack bob msg_ts =
   // receive the message
   let*? msg = recv_msg msg_ts in 
   // this returns bytes, so we need to translate to our abstract type:
-  let*? png_ = return (parse message msg) in
+  let*? png_ = return (parse message_t msg) in
   // check that the received message is of the right type
   // (the whole step fails, if the message is not a Ping)
   guard_tr (Ping? png_);*?
 
   // read the data (alice and n_a) from the received message
   let Ping png = png_ in // this "removes" the Ping constructor from png_
-  let alice = png.p_alice in
-  let n_a = png.p_n_a in
+  let alice = png.alice in
+  let n_a = png.n_a in
 
   // the abstract reply (n_a)
-  let ack = Ack {a_n_a = n_a} in
+  let ack = Ack { n_a} in
   // send the reply (serialize abstract to bytes first!)
-  let* ack_ts = send_msg (serialize message ack) in
+  let* ack_ts = send_msg (serialize message_t ack) in
 
   // the abstract new state storing alice and n_a from the message
-  let ack_state = SentAck {sa_alice = alice; sa_n_a = n_a} in
+  let ack_state = SentAck {alice; n_a} in
   // start a new session wit this new state
   let* sess_id = start_new_session bob ack_state in
 
@@ -195,31 +195,31 @@ val receive_ack: principal -> timestamp -> traceful (option state_id)
 let receive_ack alice ack_ts =
   // receive the message and translate to abstract message type
   let*? ack = recv_msg ack_ts in
-  let*? ack = return (parse message ack) in
+  let*? ack = return (parse message_t ack) in
   // check that the message is a reply
   // (otherwise this step fails)
   guard_tr (Ack? ack);*?
 
   // read the data (n_a) from the message
   let Ack ack = ack in
-  let n_a = ack.a_n_a in
+  let n_a = ack.n_a in
 
   // check if alice has a previous session where
   // * she startet a run
   // * with the nonce n_a (the one received from Bob)
   // (the step fails, if no such session exists)
-  let*? (st, sid) = lookup_state #state alice
+  let*? (st, sid) = lookup_state #state_t alice
     (fun st -> 
           SentPing? st // st is a state of type SentPing 
-      && (SentPing?.ping st).sp_n_a = n_a // the nonce stored in st is n_a
+      && (SentPing?.ping st).n_a = n_a // the nonce stored in st is n_a
     ) in
   guard_tr(SentPing? st);*?
   // access the name of Bob in the stored state
-  let bob = (SentPing?.ping st).sp_bob in
+  let bob = (SentPing?.ping st).bob in
 
   // mark this session as completed by
   // setting a new state
-  set_state alice sid (ReceivedAck {ra_bob = bob; ra_n_a = n_a});*
+  set_state alice sid (ReceivedAck {bob; n_a});*
 
   // return the ID of the completed session
   return (Some sid)
