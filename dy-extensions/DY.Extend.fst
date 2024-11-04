@@ -26,6 +26,12 @@ let state_was_set_some_id_grows #a #ls tr1 tr2 prin content  = admit()
 /// Lookup the most recent state of a principal satisfying some property.
 /// Returns the state and corresponding state id,
 /// or `None` if no such state exists.
+///
+/// ATTENTION: This may NOT return the most recent version of the session!
+/// A session could look like this [st1, st2, st3], where
+/// * st1 and st2 satisfy the property p
+/// * st3 does NOT satisfy property p
+/// The returned state will then be s2.
 
 val lookup_state_aux: principal -> (bytes -> bool) -> trace -> option (bytes & state_id)
 let rec lookup_state_aux prin p tr =
@@ -235,7 +241,6 @@ let lookup_state #a #ls prin p =
   match parse a content_bytes with
   | None -> return None
   | Some content -> return (Some (content,sid))
-
 
 val lookup_state_pred:
   #a:Type -> {|ls:local_state a|} ->
