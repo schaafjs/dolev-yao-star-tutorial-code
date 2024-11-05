@@ -1,6 +1,7 @@
-# DY_HOME ?= ../../..
+DY_HOME ?= ../../../dolev-yao-star-extrinsic
 
-EXAMPLE_DIRS = . ../../dy-extensions
+EXAMPLES = TwoMessageP
+EXAMPLE_DIRS = ../../dy-extensions $(addprefix ../, $(EXAMPLES))
 include $(DY_HOME)/Makefile
 
 test:

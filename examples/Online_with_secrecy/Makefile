@@ -1,8 +1,8 @@
-# DY_HOME ?= ../../..
+DY_HOME ?= ../../../dolev-yao-star-extrinsic
 
-EXAMPLE_DIRS = . ../../dy-extensions
+EXAMPLES = Online_with_secrecy
+EXAMPLE_DIRS = ../../dy-extensions $(addprefix ../, $(EXAMPLES))
 include $(DY_HOME)/Makefile
-
 
 test:
 	cd $(DY_HOME)/obj; OCAMLPATH=$(FSTAR_HOME)/lib ocamlbuild -use-ocamlfind -pkg batteries -pkg fstar.lib DY_OnlineS_Run.native
