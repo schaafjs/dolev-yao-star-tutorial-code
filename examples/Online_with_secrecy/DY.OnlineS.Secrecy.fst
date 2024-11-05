@@ -4,7 +4,7 @@ open Comparse
 open DY.Core
 open DY.Lib
 
-open DY.OnlineS.Protocol
+open DY.OnlineS.Data
 open DY.OnlineS.Invariants
 
 
@@ -30,8 +30,8 @@ val n_a_secrecy:
   (requires
     attacker_knows tr n_a /\
     trace_invariant tr /\ (
-      (exists sess_id. state_was_set tr alice sess_id (SentPing {sp_bob = bob; sp_n_a = n_a})) \/
-      (exists sess_id. state_was_set tr bob sess_id (ReceivedAck {ra_bob = bob; ra_n_a = n_a} ))
+      (exists sess_id. state_was_set tr alice sess_id (SentPing {bob; n_a})) \/
+      (exists sess_id. state_was_set tr bob sess_id (ReceivedAck {bob; n_a} ))
     )
   )
   (ensures is_corrupt tr (principal_label alice) \/ is_corrupt tr (principal_label bob))
