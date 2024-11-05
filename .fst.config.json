@@ -1,17 +1,22 @@
 { "fstar_exe":"fstar.exe",
-  "options":["--cache_dir", "cache", "--hint_dir", "hints", "--use_hints", "--record_hints"],
+  "options":["--cache_dir", "${DY_HOME}/cache", "--hint_dir", "${DY_HOME}/hints", "--use_hints", "--record_hints"],
   "include_dirs":[
-      "${COMPARSE_HOME}/src",
-      "${DY_HOME}/src",
-      "${DY_HOME}/src/core",
+    "${COMPARSE_HOME}/src",
+    "${DY_HOME}/src",
+    "${DY_HOME}/src/core",
     "${DY_HOME}/src/lib",
     "${DY_HOME}/src/lib/comparse",
-    // "src/lib/crypto",
+    "${DY_HOME}/src/lib/crypto",
     "${DY_HOME}/src/lib/event",
-    // "src/lib/hpke",
+    "${DY_HOME}/src/lib/hpke",
     "${DY_HOME}/src/lib/state",
     "${DY_HOME}/src/lib/utils",
-    // "examples/nsl_pk",
-    // "examples/iso_dh"
+    "${DY_HOME}/src/lib/communication",
+    "dy-extensions",
+    "examples/TwoMessageP",
+    "examples/Online",
+    "examples/Online_with_secrecy",
+    "examples/Online_with_secrecy_both",
+    "examples/nsl_pk_no_events_lookup"
   ]
 }

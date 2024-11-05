@@ -386,3 +386,4 @@ val receive_ack_invariant:
   ))
 (* The proof for this last step is automatic. *)
 let receive_ack_invariant alice keys_sid msg_ts tr = ()
+#pop-options
