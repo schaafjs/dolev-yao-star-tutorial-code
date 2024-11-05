@@ -3,7 +3,8 @@ module DY.Online.Run.Printing
 open DY.Core
 open DY.Lib
 open Comparse
-open DY.Online.Protocol
+
+open DY.Online.Data
 
 /// Helper functions for trace printing.
 /// Here we define how our abstract message and state types
