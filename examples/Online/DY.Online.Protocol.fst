@@ -39,18 +39,20 @@ open DY.Online.Data
 /// encryption was not successful, i.e.,
 /// Alice does not have a public key of Bob.
 
+let nonce_label alice bob = join (principal_label alice) (principal_label bob)
+
 val send_ping: principal -> principal -> state_id -> traceful (option (state_id & timestamp))
 let send_ping alice bob keys_sid =
   // TODO: explain high-level idea of "intended readers"
   let* n_a = gen_rand_labeled (join (principal_label alice) (principal_label bob)) in
   
-  let ping = Ping {p_alice = alice; p_n_a = n_a} in 
+  let ping = Ping {alice; n_a} in 
 
   // encrypt the message for bob
   let*? ping_encrypted = pk_enc_for alice bob keys_sid key_tag ping in
   let* msg_ts = send_msg ping_encrypted in
 
-  let ping_state = SentPing {sp_bob = bob; sp_n_a = n_a} in
+  let ping_state = SentPing {bob; n_a} in
   let* sid = start_new_session alice ping_state in
 
   return (Some (sid, msg_ts))
@@ -84,7 +86,7 @@ let decode_ping bob keys_sid msg =
   // try to decrypt the message with
   // a private key of bob with the protocol tag
   // (fails, if no such key exists)
-  let*? png = pk_dec_with_key_lookup #message bob keys_sid key_tag msg in
+  let*? png = pk_dec_with_key_lookup #message_t bob keys_sid key_tag msg in
   
   // check that the decrypted message is of the right type
   // (otherwise fail)
@@ -102,15 +104,15 @@ let receive_ping_and_send_ack bob global_sids msg_ts =
   // decode the received expected ping
   let*? png = decode_ping bob global_sids.private_keys msg in
 
-  let n_a = png.p_n_a in
-  let alice = png.p_alice in
+  let n_a = png.n_a in
+  let alice = png.alice in
 
-  let ack = Ack {a_n_a = n_a} in
+  let ack = Ack {n_a} in
   // encrypt the reply for alice
   let*? ack_encrypted = pk_enc_for bob alice global_sids.pki key_tag ack in
   let* ack_ts = send_msg ack_encrypted in
   
-  let* sess_id = start_new_session bob (SentAck {sa_alice = alice; sa_n_a = n_a}) in
+  let* sess_id = start_new_session bob (SentAck {alice; n_a}) in
   
   return (Some (sess_id, ack_ts))
 
@@ -136,11 +138,11 @@ let receive_ping_and_send_ack bob global_sids msg_ts =
 /// Returns the content of the reply.
 /// Fails if decryption fails.
 
-val decode_ack : principal -> state_id -> bytes -> traceful (option ack)
+val decode_ack : principal -> state_id -> bytes -> traceful (option ack_t)
 let decode_ack alice keys_sid cipher =
   // try to decrypt the message with
   // a private key of alice with the protocol tag
-  let*? ack = pk_dec_with_key_lookup #message alice keys_sid key_tag cipher in
+  let*? ack = pk_dec_with_key_lookup #message_t alice keys_sid key_tag cipher in
 
   // check that the decrypted message is of the Ack type
   guard_tr (Ack? ack);*?
@@ -155,12 +157,14 @@ let receive_ack alice keys_sid ack_ts =
   // decode the received expected ack
   let*? ack = decode_ack alice keys_sid msg in
 
-  let*? (st, sid) = lookup_state #state alice
-    (fun st -> SentPing? st && (SentPing?.ping st).sp_n_a = ack.a_n_a)
+  let n_a = ack.n_a in
+
+  let*? (st, sid) = lookup_state #state_t alice
+    (fun st -> SentPing? st && (SentPing?.ping st).n_a = n_a)
     in
   guard_tr(SentPing? st);*?
-  let bob = (SentPing?.ping st).sp_bob in
+  let bob = (SentPing?.ping st).bob in
 
-  set_state alice sid (ReceivedAck {ra_bob=bob; ra_n_a = ack.a_n_a});*
+  set_state alice sid (ReceivedAck {bob; n_a});*
 
   return (Some sid)
