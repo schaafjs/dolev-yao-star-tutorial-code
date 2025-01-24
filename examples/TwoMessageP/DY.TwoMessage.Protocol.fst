@@ -10,7 +10,7 @@ open DY.Extend
 open DY.TwoMessage.Data
 
 /// Here we define the DY* model of the
-/// simple 2 message protocol:
+/// simple Two-Message protocol:
 ///
 /// A -> B: Ping (A, n_A)
 /// B -> A: Ack n_A
@@ -77,7 +77,7 @@ let receive_ping_and_send_ack bob msg_ts =
   let n_a = png.n_a in
 
   // the abstract reply (n_a)
-  let ack = Ack { n_a} in
+  let ack = Ack {n_a} in
   // send the reply (serialize abstract to bytes first!)
   let* ack_ts = send_msg (serialize message_t ack) in
 
@@ -104,8 +104,8 @@ let receive_ping_and_send_ack bob msg_ts =
 val receive_ack: principal -> timestamp -> traceful (option state_id)
 let receive_ack alice ack_ts =
   // receive the message and translate to abstract message type
-  let*? ack = recv_msg ack_ts in
-  let*? ack = return (parse message_t ack) in
+  let*? msg = recv_msg ack_ts in
+  let*? ack = return (parse message_t msg) in
   // check that the message is a reply
   // (otherwise this step fails)
   guard_tr (Ack? ack);*?
