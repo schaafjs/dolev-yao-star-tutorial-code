@@ -1,4 +1,4 @@
-module DY.OnlineS.Protocol
+module DY.OnlineA.Protocol
 
 open Comparse
 open DY.Core
@@ -7,7 +7,7 @@ open DY.Lib
 open DY.Simplified
 open DY.Extend
 
-open DY.OnlineS.Data
+open DY.OnlineA.Data
 
 /// Here we define the DY* mode of the "Online?" protocol,
 /// an extension of the simple Two-Message protocol:
@@ -26,10 +26,14 @@ open DY.OnlineS.Data
 /// Additionally, there are two helper functions
 /// for steps 2 and 3 (`decode_ping` and `decode_ack`).
 
+/// We only highlight the differences to the previous model
+/// for nonce secrecy.
+
 (*** Sending the Ping ***)
 
 /// Alice sends the first message to Bob:
 /// * Alice generates a new nonce [n_a]
+/// * triggers an "Initiating" event
 /// * encrypts the message (Alice, n_a) for Bob
 /// * sends the encrypted message
 /// * stores n_a and Bob in a state (in a new session)
@@ -43,12 +47,16 @@ let nonce_label alice bob = join (principal_label alice) (principal_label bob)
 
 val send_ping: principal -> principal -> state_id -> traceful (option (state_id & timestamp))
 let send_ping alice bob alice_public_keys_sid =
-  // TODO: explain high-level idea of "intended readers"
   let* n_a = gen_rand_labeled (nonce_label alice bob) in
-  
+
+  (* This is the new step of triggering the Initiating event.
+     ATTENTION: it has to be called right after generating the nonce
+     (for the event predicate we will see later)
+  *)
+  trigger_event alice (Initiating {alice = alice; bob = bob; n_a = n_a});*
+
   let ping = Ping {alice; n_a} in 
 
-  // encrypt the message for bob
   let*? ping_encrypted = pke_enc_for alice bob alice_public_keys_sid key_tag ping in
   let* msg_ts = send_msg ping_encrypted in
 
@@ -64,6 +72,7 @@ let send_ping alice bob alice_public_keys_sid =
 /// Bob receives the first messages and replies:
 /// * read the message from the trace
 /// * decrypt the message to (Alice, n_a)
+/// * trigger a "Responding" event
 /// * encrypt the reply (n_a) for Alice
 /// * send the encrypted reply
 /// * store n_a and Alice in a state in a new session
@@ -83,17 +92,10 @@ let send_ping alice bob alice_public_keys_sid =
 
 val decode_ping : principal -> state_id -> bytes -> traceful (option ping_t)
 let decode_ping bob bob_private_keys_sid msg =
-  // try to decrypt the message with
-  // a private key of bob with the protocol tag
-  // (fails, if no such key exists)
   let*? png = pke_dec_with_key_lookup #message_t bob bob_private_keys_sid key_tag msg in
   
-  // check that the decrypted message is of the right type
-  // (otherwise fail)
   guard_tr (Ping? png);*?
 
-  // return the content of the message 
-  // (i.e., strip the Ping constructor)
   return (Some (Ping?.ping png))
 
 /// Now the actual receive and reply step
@@ -101,13 +103,15 @@ let decode_ping bob bob_private_keys_sid msg =
 val receive_ping_and_send_ack: principal -> state_id -> state_id -> timestamp -> traceful (option (state_id & timestamp))
 let receive_ping_and_send_ack bob bob_private_keys_sid bob_public_keys_sid msg_ts =
   let*? msg = recv_msg msg_ts in
-  // decode the received expected ping
   let*? png = decode_ping bob bob_private_keys_sid msg in
-  let alice = png.alice in
+  let alice = png.alice in  
   let n_a = png.n_a in
+  
+  (* This is the new step, where Bob triggers the Responding event for the current run
+  *)
+  trigger_event bob (Responding {alice = alice; bob = bob; n_a = n_a});* 
 
   let ack = Ack {n_a} in
-  // encrypt the reply for alice
   let*? ack_encrypted = pke_enc_for bob alice bob_public_keys_sid key_tag ack in
   let* ack_ts = send_msg ack_encrypted in
 
@@ -124,6 +128,7 @@ let receive_ping_and_send_ack bob bob_private_keys_sid bob_public_keys_sid msg_t
 /// * read the message from the trace
 /// * decrypt the message to (n_a)
 /// * check if Alice previously sent n_a in some session
+/// * trigger a "Finishing" event
 /// * store completion of this session in a new state
 /// Returns the ID of the session that is marked as completed.
 /// The step fails, if one of
@@ -140,21 +145,16 @@ let receive_ping_and_send_ack bob bob_private_keys_sid bob_public_keys_sid msg_t
 
 val decode_ack : principal -> state_id -> bytes -> traceful (option ack_t)
 let decode_ack alice alice_private_keys_sid cipher =
-  // try to decrypt the message with
-  // a private key of alice with the protocol tag
   let*? ack = pke_dec_with_key_lookup #message_t alice alice_private_keys_sid key_tag cipher in
 
-  // check that the decrypted message is of the Ack type
   guard_tr (Ack? ack);*?
 
-  // return the content of the message
   return (Some (Ack?.ack ack))
 
 /// The actual protocol step using the decode function
 val receive_ack: principal -> state_id -> timestamp -> traceful (option state_id)
 let receive_ack alice alice_private_keys_sid ack_ts =
   let*? msg = recv_msg ack_ts in
-  // decode the received expected ack
   let*? ack = decode_ack alice alice_private_keys_sid msg in
   let n_a = ack.n_a in
 
@@ -165,7 +165,10 @@ let receive_ack alice alice_private_keys_sid ack_ts =
     ) in
   guard_tr(SentPing? st);*?
   let bob = (SentPing?.ping st).bob in
-
+  
+  (* This is the new step, where Alice triggers the Finishing event for the current run
+  *)
+  trigger_event alice (Finishing {alice; bob; n_a});*
   set_state alice sid (ReceivedAck {bob; n_a});*
 
   return (Some sid)
