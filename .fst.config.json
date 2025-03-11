@@ -15,8 +15,9 @@
     "dy-extensions",
     "examples/TwoMessageP",
     "examples/Online",
+    "examples/Online_with_authn",
     "examples/Online_with_secrecy",
-    "examples/Online_with_secrecy_both",
-    "examples/nsl_pk_no_events_lookup"
+    "examples/NSL",
+    "examples/NSL_with_properties"
   ]
 }
