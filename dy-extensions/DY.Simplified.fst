@@ -31,8 +31,8 @@ let start_new_session prin cont =
 val pke_enc_for:
   #a:Type -> {| parseable_serializeable bytes a |} ->
   principal -> principal ->
-  state_id -> string -> 
-  a -> 
+  state_id -> string ->
+  a ->
   traceful (option bytes)
 let pke_enc_for #a alice bob key_sid key_tag plaintext =
   let*? pk_bob = get_public_key alice key_sid (LongTermPkeKey key_tag) bob in
@@ -55,6 +55,9 @@ val pke_enc_for_invariant:
     let (_, tr_out) = pke_enc_for #a alice bob alice_pki_sid key_tag msg tr in
     trace_invariant tr_out
   ))
+  [SMTPat (pke_enc_for #a alice bob alice_pki_sid key_tag msg tr);
+   SMTPat (trace_invariant tr);
+  ]
 let pke_enc_for_invariant tr #a alice bob alice_pki_sid key_tag msg = ()
 
 val pke_enc_for_is_publishable:
@@ -74,18 +77,29 @@ val pke_enc_for_is_publishable:
         trace_invariant tr
       /\ has_pki_invariant
       /\ bytes_invariant tr msg_b
+      /\ is_well_formed a (bytes_invariant tr) msg
       /\ (get_label tr msg_b) `can_flow tr` (long_term_key_label bob)
       /\ (get_label tr msg_b) `can_flow tr` (long_term_key_label alice)
-      /\ (pke_pred.pred tr enc_key_usage (Some?.v pk_bob) msg_b
-        \/ (get_label tr msg_b) `can_flow tr` public)
+      /\ is_well_formed a (is_knowable_by (long_term_key_label bob) tr) msg
+      /\ is_well_formed a (is_knowable_by (long_term_key_label alice) tr) msg
+      /\ (
+        pke_pred.pred tr enc_key_usage (Some?.v pk_bob) msg_b
+        \/ (((get_label tr msg_b) `can_flow tr` public)
+           /\ is_well_formed a (is_publishable tr) msg
+        )
       )
-    ))
+    )
+  ))
   (ensures (
     match pke_enc_for alice bob alice_pki_sid key_tag msg tr with
     | (None, _) -> True
-    | (Some cipher, tr_out) -> 
+    | (Some cipher, tr_out) ->
         is_publishable tr_out cipher
   ))
+// TODO: This SMTPat will only trigger if trace_invariant tr holds. Maybe that's sufficient.
+  [SMTPat (pke_enc_for #a alice bob alice_pki_sid key_tag msg tr);
+   SMTPat (trace_invariant tr);
+  ]
 let pke_enc_for_is_publishable tr #a alice bob alice_pki_sid key_tag msg =
   match pke_enc_for alice bob alice_pki_sid key_tag msg tr with
   | (None, _) -> ()
@@ -100,17 +114,17 @@ let pke_enc_for_is_publishable tr #a alice bob alice_pki_sid key_tag msg =
       with _ .
         pke_pred.pred_later tr tr_nonce sk_usg pk_bob msg;
       ()
-)  
+)
 
 val pke_dec_with_key_lookup:
   #a:Type -> {| parseable_serializeable bytes a |} ->
-  principal -> 
+  principal ->
   state_id -> string ->
   bytes ->
   traceful (option a)
 let pke_dec_with_key_lookup #a prin keys_sid key_tag cipher =
   let*? sk_a = get_private_key prin keys_sid (LongTermPkeKey key_tag) in
-  let*? plaintext = return (pke_dec sk_a cipher) in 
+  let*? plaintext = return (pke_dec sk_a cipher) in
   // guard_tr ( Some? (parse a plaintext));*?
   return (parse a plaintext)
 
@@ -132,6 +146,7 @@ val bytes_invariant_pke_dec_with_key_lookup:
     | (Some plaintext, _) -> (
         let plain_b = serialize #bytes a plaintext in
         is_knowable_by (long_term_key_label alice ) tr plain_b /\
+        is_well_formed a (is_knowable_by (long_term_key_label alice) tr) plaintext /\
       ( let sk_usg = (long_term_key_type_to_usage (LongTermPkeKey key_tag) alice) in
         let (sk_alice, _) = get_private_key alice keys_sid (LongTermPkeKey key_tag) tr in
         Some? sk_alice /\
@@ -139,17 +154,21 @@ val bytes_invariant_pke_dec_with_key_lookup:
           //PkKey? sk_usg /\
           pke_pred.pred tr sk_usg (pk (Some?.v sk_alice)) plain_b )
           \/ (
-          (get_label tr plain_b `can_flow tr` public)
+            (get_label tr plain_b `can_flow tr` public) /\
+            is_well_formed a (is_publishable tr) plaintext
         )
       )
     )
   )))
-let bytes_invariant_pke_dec_with_key_lookup tr #a alice keys_sid key_tag cipher = 
+  [SMTPat (pke_dec_with_key_lookup #a alice keys_sid key_tag cipher tr);
+   SMTPat (trace_invariant tr);
+  ]
+let bytes_invariant_pke_dec_with_key_lookup tr #a alice keys_sid key_tag cipher =
   match pke_dec_with_key_lookup #a alice keys_sid key_tag cipher tr with
   | (None, _) -> ()
   | (Some plaintext, _) -> (
       let (Some sk_alice, _) = get_private_key alice keys_sid (LongTermPkeKey key_tag) tr in
-      let Some cipher_dec = pke_dec sk_alice cipher in 
+      let Some cipher_dec = pke_dec sk_alice cipher in
        let sk_usg = (long_term_key_type_to_usage (LongTermPkeKey key_tag) alice) in
       bytes_invariant_pke_dec tr sk_alice sk_usg cipher;
       serialize_parse_inv_lemma a cipher_dec
@@ -188,7 +207,7 @@ let install_public_pke_key alice alice_public_keys_sid key_tag bob bob_private_k
 
    The following functions simplify printing of Pke Keys:
    * The LongTermPkeKey constructor is hidden
-   * For public keys, the lookup key for the dictionary is written as pair 
+   * For public keys, the lookup key for the dictionary is written as pair
      (of key tag and principal)
 *)
 
@@ -203,7 +222,7 @@ let rec private_keys_types_to_string_ m =
   match m with
   | [] -> ""
   | hd :: tl -> (
-    (private_keys_types_to_string_ tl) ^ 
+    (private_keys_types_to_string_ tl) ^
     Printf.sprintf "%s = (%s)," (long_term_key_type_to_string_ hd.key.ty) (bytes_to_string hd.value.private_key)
   )
 
@@ -219,10 +238,10 @@ let rec pki_types_to_string m =
   match m with
   | [] -> ""
   | hd :: tl -> (
-    (pki_types_to_string tl) ^ 
+    (pki_types_to_string tl) ^
     Printf.sprintf "(%s, %s) = (%s)," (long_term_key_type_to_string_ hd.key.ty) hd.key.who (bytes_to_string hd.value.public_key)
   )
-  
+
 val pki_state_to_string: bytes -> option string
 let pki_state_to_string content_bytes =
   let? state = parse (map DY.Lib.State.PKI.pki_key DY.Lib.State.PKI.pki_value) content_bytes in
@@ -236,7 +255,7 @@ let default_pke_keys_printer =
 let default_state_to_string = default_pke_keys_printer
 
 let default_trace_to_string_printers =
-  trace_to_string_printers_builder 
+  trace_to_string_printers_builder
     default_message_to_string
     default_state_to_string
     default_event_to_string

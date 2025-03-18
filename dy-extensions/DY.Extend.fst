@@ -48,6 +48,7 @@ let state_was_set_some_id (#a:Type) {|local_state a|} tr prin (cont : a) =
 val empty_invariants:
   {| protocol_invariants |} ->
   Lemma (trace_invariant empty_trace)
+  [SMTPat (trace_invariant empty_trace)]
 let empty_invariants #pinvs = 
   normalize_term_spec trace_invariant
 
