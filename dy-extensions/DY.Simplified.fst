@@ -28,6 +28,7 @@ let start_new_session prin cont =
   set_state prin sid cont;*
   return sid
 
+[@@ "opaque_to_smt"]
 val pke_enc_for:
   #a:Type -> {| parseable_serializeable bytes a |} ->
   principal -> principal ->
@@ -58,7 +59,8 @@ val pke_enc_for_invariant:
   [SMTPat (pke_enc_for #a alice bob alice_pki_sid key_tag msg tr);
    SMTPat (trace_invariant tr);
   ]
-let pke_enc_for_invariant tr #a alice bob alice_pki_sid key_tag msg = ()
+let pke_enc_for_invariant tr #a alice bob alice_pki_sid key_tag msg =
+  reveal_opaque (`%pke_enc_for) (pke_enc_for #a)
 
 val pke_enc_for_is_publishable:
   {|protocol_invariants|} ->
@@ -101,6 +103,7 @@ val pke_enc_for_is_publishable:
    SMTPat (trace_invariant tr);
   ]
 let pke_enc_for_is_publishable tr #a alice bob alice_pki_sid key_tag msg =
+  reveal_opaque (`%pke_enc_for) (pke_enc_for #a);
   match pke_enc_for alice bob alice_pki_sid key_tag msg tr with
   | (None, _) -> ()
   | (Some cipher, tr_out) -> (
@@ -116,6 +119,7 @@ let pke_enc_for_is_publishable tr #a alice bob alice_pki_sid key_tag msg =
       ()
 )
 
+[@@ "opaque_to_smt"]
 val pke_dec_with_key_lookup:
   #a:Type -> {| parseable_serializeable bytes a |} ->
   principal ->
@@ -127,6 +131,21 @@ let pke_dec_with_key_lookup #a prin keys_sid key_tag cipher =
   let*? plaintext = return (pke_dec sk_a cipher) in
   // guard_tr ( Some? (parse a plaintext));*?
   return (parse a plaintext)
+
+val pke_dec_with_key_lookup_same_trace:
+  #a:Type -> {| parseable_serializeable bytes a |} ->
+  prin:principal ->
+  keys_sid:state_id -> key_tag:string ->
+  ciphertext:bytes ->
+  tr:trace ->
+  Lemma
+  (ensures (
+    let (_, tr_out) = pke_dec_with_key_lookup #a prin keys_sid key_tag ciphertext tr in
+    tr == tr_out
+  ))
+  [SMTPat (pke_dec_with_key_lookup #a prin keys_sid key_tag ciphertext tr)]
+let pke_dec_with_key_lookup_same_trace #a prin keys_sid key_tag ciphertext tr =
+  reveal_opaque (`%pke_dec_with_key_lookup) (pke_dec_with_key_lookup #a)
 
 val bytes_invariant_pke_dec_with_key_lookup:
   {|protocol_invariants|} ->
@@ -156,14 +175,16 @@ val bytes_invariant_pke_dec_with_key_lookup:
           \/ (
             (get_label tr plain_b `can_flow tr` public) /\
             is_well_formed a (is_publishable tr) plaintext
+          )
         )
       )
     )
-  )))
+  ))
   [SMTPat (pke_dec_with_key_lookup #a alice keys_sid key_tag cipher tr);
    SMTPat (trace_invariant tr);
   ]
 let bytes_invariant_pke_dec_with_key_lookup tr #a alice keys_sid key_tag cipher =
+  reveal_opaque (`%pke_dec_with_key_lookup) (pke_dec_with_key_lookup #a);
   match pke_dec_with_key_lookup #a alice keys_sid key_tag cipher tr with
   | (None, _) -> ()
   | (Some plaintext, _) -> (

@@ -246,6 +246,10 @@ val event_initiating_injective:
   (ensures
     bob == bob'
   )
+  [SMTPat (event_triggered tr alice (Initiating {alice; bob; n_a}));
+   SMTPat (event_triggered tr alice (Initiating {alice; bob = bob'; n_a}));
+   SMTPat (trace_invariant tr);
+  ]
 let event_initiating_injective tr alice bob bob' n_a = ()
 
 

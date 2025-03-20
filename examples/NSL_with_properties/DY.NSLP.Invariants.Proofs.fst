@@ -34,7 +34,7 @@ val send_msg1_invariant:
 let send_msg1_invariant alice bob alice_public_keys_sid tr =
   let (n_a, tr_rand) = gen_rand_labeled (nonce_label alice bob) tr in
   let (_, tr_ev) = trigger_event alice (Initiating {alice; bob; n_a}) tr_rand in
-  let msg1 = Msg1 {alice; n_a} in 
+  let msg1 = Msg1 {alice; n_a} in
   serialize_wf_lemma message_t (is_knowable_by (nonce_label alice bob) tr_ev) msg1;
   pke_enc_for_is_publishable tr_ev alice bob alice_public_keys_sid key_tag msg1
 
@@ -59,7 +59,7 @@ val decode_msg1_proof:
   msg:bytes ->
   tr:trace ->
   Lemma
-    (requires 
+    (requires
        trace_invariant tr /\
        bytes_invariant tr msg
     )
@@ -80,9 +80,9 @@ let decode_msg1_proof bob bob_private_keys_sid msg tr =
       )
 
 val receive_msg1_and_send_msg2_invariant:
-  bob:principal -> 
+  bob:principal ->
   bob_private_keys_sid:state_id -> bob_public_keys_sid:state_id ->
-  msg_ts:timestamp -> 
+  msg_ts:timestamp ->
   tr:trace ->
   Lemma
   (requires trace_invariant tr)
@@ -99,25 +99,25 @@ let receive_msg1_and_send_msg2_invariant bob bob_private_keys_sid bob_public_key
       | (Some msg1, _) -> (
           let alice = msg1.alice in
           let n_a = msg1.n_a in
-          
+
           let (n_b, tr_rand) = gen_rand_labeled (nonce_label alice bob) tr in
           assert(trace_invariant tr_rand);
-          
+
           let (_, tr_ev) = trigger_event bob (Responding1 {alice; bob; n_a; n_b}) tr_rand in
           assert(trace_invariant tr_ev);
-          
+
           let msg2 = Msg2 {bob; n_a; n_b} in
           match pke_enc_for bob alice bob_public_keys_sid key_tag msg2 tr_ev with
           | (None, _) -> ()
           | (Some msg2_encrypted, tr_msg2) ->(
               assert(trace_invariant tr_msg2);
-              
+
               let (msg2_ts, tr_msg2_) = send_msg msg2_encrypted tr_msg2 in
                 decode_msg1_proof bob bob_private_keys_sid msg tr;
                 serialize_wf_lemma message_t (is_knowable_by (nonce_label alice bob) tr_rand) msg2;
                 pke_enc_for_is_publishable tr_ev bob alice bob_public_keys_sid key_tag msg2;
               assert(trace_invariant tr_msg2_);
-              
+
               let state = SentMsg2 {alice; n_a; n_b} in
               let (sess_id, tr_sess) = start_new_session bob state tr_msg2_ in
               assert(trace_invariant tr_sess)
@@ -265,7 +265,26 @@ let decode_msg3_proof bob bob_private_keys_sid msg tr =
       let plain = serialize message_t (Msg3 msg3) in
       parse_wf_lemma message_t (bytes_invariant tr) plain;
       FStar.Classical.move_requires (parse_wf_lemma message_t (is_publishable tr)) plain
-  )  
+  )
+
+val responding1_injective_lemma:
+  tr:trace ->
+  bob:principal -> bob':principal ->
+  alice:principal -> alice':principal ->
+  n_a:bytes -> n_a':bytes ->
+  n_b:bytes ->
+  Lemma
+  (requires
+    trace_invariant tr /\
+    event_triggered tr bob (Responding1 {alice=alice; bob=bob; n_a=n_a; n_b}) /\
+    event_triggered tr bob' (Responding1 {alice=alice'; bob=bob'; n_a=n_a'; n_b})
+  )
+  (ensures bob == bob' /\ alice == alice' /\ n_a == n_a')
+  [SMTPat (event_triggered tr bob (Responding1 {alice=alice; bob=bob; n_a=n_a; n_b}));
+   SMTPat (event_triggered tr bob' (Responding1 {alice=alice'; bob=bob'; n_a=n_a'; n_b}));
+   SMTPat (trace_invariant tr);
+  ]
+let responding1_injective_lemma tr bob bob' alice alice' n_a n_a' n_b = ()
 
 val receive_msg3_invariant:
   bob:principal ->
@@ -278,7 +297,7 @@ val receive_msg3_invariant:
     let (_, tr_out) = receive_msg3 bob bob_private_keys_sid msg_ts tr in
     trace_invariant tr_out
   ))
-let receive_msg3_invariant bob bob_private_keys_sid msg_ts tr = 
+let receive_msg3_invariant bob bob_private_keys_sid msg_ts tr =
   match recv_msg msg_ts tr with
   | (None, _ ) -> ()
   | (Some msg3_, _) -> (
@@ -286,7 +305,7 @@ let receive_msg3_invariant bob bob_private_keys_sid msg_ts tr =
        | (None, _ ) -> ()
        | (Some msg3, _) -> (
             let n_b = msg3.n_b in
-            let p = (fun (st:state_t) -> 
+            let p = (fun (st:state_t) ->
                         SentMsg2? st
                     && (SentMsg2?.sentmsg2 st).n_b = n_b
                     ) in
@@ -296,10 +315,11 @@ let receive_msg3_invariant bob bob_private_keys_sid msg_ts tr =
                  let alice = (SentMsg2?.sentmsg2 st).alice in
                  let n_a = (SentMsg2?.sentmsg2 st).n_a in
 
+                 decode_msg3_proof bob bob_private_keys_sid msg3_ tr;
+
                  let (_, tr_ev) = trigger_event bob (Finishing {alice; bob; n_a; n_b}) tr in
-                   decode_msg3_proof bob bob_private_keys_sid msg3_ tr;
                  assert(trace_invariant tr_ev);
-                 
+
                  let (_, tr_st) = set_state bob sid (ReceivedMsg3 {alice; n_a; n_b}) tr_ev in
                  assert(trace_invariant tr_st)
             )

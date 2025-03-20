@@ -153,8 +153,10 @@ let send_ping_invariant alice bob alice_private_keys_sid  tr =
              and use the key of bob for encryption (in pke_enc_for),
              we satisfy the predicate.
           *)
-          let (Some pk_bob, _) = get_public_key alice alice_private_keys_sid (LongTermPkeKey key_tag) bob tr_rand in
-          assert(pke_pred.pred tr_rand (long_term_key_type_to_usage (LongTermPkeKey key_tag) bob) pk_bob (serialize message_t ping));
+          let (pk_bob_opt, _) = get_public_key alice alice_private_keys_sid (LongTermPkeKey key_tag) bob tr_rand in
+          assert(None? pk_bob_opt \/
+            pke_pred.pred tr_rand (long_term_key_type_to_usage (LongTermPkeKey key_tag) bob) (Some?.v pk_bob_opt) (serialize message_t ping)
+          );
       (* Now we showed all pre-conditions of `pke_enc_for_is_publishable`
          and can call this lemma to show that ping_encrypted is publishable.
 
