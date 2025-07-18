@@ -1,4 +1,4 @@
-module DY.Online.Data
+module DY.TwoMessage.Data
 
 open Comparse
 open DY.Core
@@ -39,7 +39,7 @@ type sent_ping_t = {
 
 [@@ with_bytes bytes]
 type sent_ack_t = {
-  alice : principal;
+  alice: principal;
   n_a : bytes;
 }
 
@@ -64,9 +64,6 @@ instance parseable_serializeable_bytes_state_t: parseable_serializeable bytes st
   mk_parseable_serializeable ps_state_t
 
 instance local_state_state_t: local_state state_t = {
-  tag = "Online.State";
+  tag = "TwoMessage.State";
   format = parseable_serializeable_bytes_state_t;
 }
-
-// Global tag constant
-let key_tag = "Online.Key"

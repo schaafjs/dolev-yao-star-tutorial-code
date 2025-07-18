@@ -47,7 +47,7 @@ let run () : traceful (option unit ) =
   (*** The actual protocol run ***)
 
   // Alice sends a Ping to Bob
-  let*? (alice_sid, ping_ts) = send_ping alice bob alice_public_keys_sid in
+  let*? (alice_sid, ping_ts) = send_ping alice alice_public_keys_sid bob in
   // Bob replies with an Ack (reading the ping at the given timestamp)
   let*? (bob_sid, ack_ts) = receive_ping_and_send_ack bob bob_private_keys_sid bob_public_keys_sid ping_ts in
   // Alice receives the Ack (at the given ack timestamp)
