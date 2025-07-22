@@ -91,9 +91,12 @@ let state_predicate_nsl: local_state_predicate state_t = {
     )
     | SentMsg3 {bob; n_a; n_b} -> (
       let alice = prin in
+      // Not implied by state_was_set_some_id
       is_secret (nonce_label alice bob) tr n_a /\
       //is_knowable_by (nonce_label alice bob) tr n_a /\
+      // The next line implies
       event_triggered tr alice (Initiating{alice; bob; n_a}) /\
+      //state_was_set_some_id tr alice (SentMsg1 {bob; n_a}) /\
       ((is_secret (nonce_label alice bob) tr n_b /\
       //is_knowable_by (nonce_label alice bob) tr n_b /\
       state_was_set_some_id tr bob (SentMsg2 {alice; n_a; n_b})) \/
@@ -107,24 +110,17 @@ let state_predicate_nsl: local_state_predicate state_t = {
       ((is_secret (nonce_label alice bob) tr n_a /\
       //is_knowable_by (nonce_label alice bob) tr n_a /\
       state_was_set_some_id tr alice (SentMsg3 {bob; n_a; n_b})) \/
-      (is_publishable tr n_a ))
+      // is_publishable tr n_a or n_b???
+      (is_publishable tr n_b))
     )
     | _ -> False
     );
   pred_later = (fun tr1 tr2 prin sess_id st -> ());
   pred_knowable = (fun tr prin sess_id st -> ());
-  (*
-  match st with
-  | RcvdMsg3 {alice; n_a; n_b} -> 
-    let bob = prin in
-    assert(is_knowable_by (principal_label prin) tr n_a);
-    assert(is_knowable_by (principal_label prin) tr n_b)    
-  | _ -> ()
-  );*)
 }
 #pop-options
 
-(*.Event invariants, taken from NSLP *)
+(* Event invariants, taken from NSLP *)
 let event_predicate_nsl: event_predicate event_t =
   fun tr prin e ->
     match e with

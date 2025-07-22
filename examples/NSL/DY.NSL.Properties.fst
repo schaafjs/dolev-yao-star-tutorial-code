@@ -45,7 +45,7 @@ val publishable_implies_corruption:
 
 let publishable_implies_corruption tr alice bob n_a = ()
 
-let n_b_secrecy tr alice bob n_a n_b =
+let n_a_secrecy tr alice bob n_a n_b =
   introduce attacker_knows tr n_a ==> principal_is_corrupt tr alice \/ principal_is_corrupt tr bob
   with _ .
     attacker_only_knows_publishable_values tr n_a

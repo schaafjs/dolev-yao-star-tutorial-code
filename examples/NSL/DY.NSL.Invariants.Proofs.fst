@@ -12,10 +12,8 @@ open DY.NSL.Protocol
 open DY.NSL.Invariants
 
 // Taken from OnlineS
-//#set-options "--fuel 0 --ifuel 1 --z3rlimit 25  --z3cliopt 'smt.qi.eager_threshold=100'"
+#set-options "--fuel 0 --ifuel 1 --z3rlimit 25  --z3cliopt 'smt.qi.eager_threshold=100' --query_stats"
 
-// Customized options
-#set-options "--fuel 30 --ifuel 5 --z3rlimit 100  --z3cliopt 'smt.qi.eager_threshold=100'"
 
 val send_msg1_invariant:
   alice:principal -> bob:principal -> alice_public_keys_sid:state_id -> tr:trace ->
