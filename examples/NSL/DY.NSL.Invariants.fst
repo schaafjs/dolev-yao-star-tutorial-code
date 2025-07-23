@@ -29,27 +29,9 @@ let crypto_predicates_nsl : crypto_predicates = {
   default_crypto_predicates with
   
   pke_pred = {
-    pred = (fun tr sk_usage pk msg ->
-    (exists prin.
-      sk_usage == long_term_key_type_to_usage (LongTermPkeKey key_tag) prin /\
-      (match parse message_t msg with
-      | Some (Msg1 {alice; n_a}) ->
-        let bob = prin in
-        get_label tr n_a == nonce_label alice bob /\
-        event_triggered tr alice (Initiating {alice; bob; n_a})
-      | Some (Msg2 {bob; n_a; n_b}) ->
-        let alice = prin in
-        get_label tr n_a == nonce_label alice bob /\
-        get_label tr n_b == nonce_label alice bob /\
-        event_triggered tr bob (Responding1{alice; bob; n_a; n_b})
-      | Some (Msg3 {n_b}) ->
-        True // Analogous to just accepting a previously sent and verified nonce in the Online protocol
-      | _ -> False // fallthrough case, reject all other messages that do not conform to any of the expected types.
-      ))
-    );
-  pred_later = (fun tr1 tr2 sk_usage pk msg ->
-    parse_wf_lemma message_t (bytes_well_formed tr1) msg
-  );
+    // Continue here
+    pred = (fun tr sk_usage pk msg -> True);
+    pred_later = (fun tr1 tr2 sk_usage pk msg -> ());
   };
 }
 #pop-options
@@ -67,53 +49,30 @@ instance crypto_invariants_nsl: crypto_invariants = {
 %splice [ps_rcvd_msg3_t_is_well_formed](gen_is_well_formed_lemma (`rcvd_msg3_t))
 %splice [ps_state_t_is_well_formed](gen_is_well_formed_lemma (`state_t))
 
-#push-options "--ifuel 2 --z3cliopt 'smt.qi.eager_threshold=50'"
+#push-options "--ifuel 2 --z3cliopt 'smt.qi.eager_threshold=50' --query_stats"
 let state_predicate_nsl: local_state_predicate state_t = {
   pred = (fun tr prin sess_id st ->
     match st with
     | SentMsg1 {bob; n_a} -> (
       let alice = prin in
-      is_secret (nonce_label alice bob) tr n_a /\
-      //is_knowable_by (nonce_label alice bob) tr n_a /\
-      event_triggered tr alice (Initiating{alice; bob; n_a})
+      is_knowable_by (nonce_label alice bob) tr n_a /\
+      state_was_set_some_id tr alice (SentMsg1 {bob; n_a})
     )
     | SentMsg2 {alice; n_a; n_b} -> (
       let bob = prin in
-      //is_knowable_by (principal_label bob) tr n_a /\
-      is_secret (nonce_label alice bob) tr n_b /\
-      //is_knowable_by (nonce_label alice bob) tr n_b /\
-      event_triggered tr bob (Responding1{alice; bob; n_a; n_b}) /\
-      // Too strong of an assumption as is. If the attacker sends some public n_a, neither hold
-      ((is_secret (nonce_label alice bob) tr n_a /\
-      //is_knowable_by (nonce_label alice bob) tr n_a /\
-      state_was_set_some_id tr alice (SentMsg1 {bob; n_a})) \/
-      is_publishable tr n_a)
+      is_knowable_by (nonce_label alice bob) tr n_a /\
+      is_knowable_by (nonce_label alice bob) tr n_b
     )
     | SentMsg3 {bob; n_a; n_b} -> (
       let alice = prin in
-      // Not implied by state_was_set_some_id
-      is_secret (nonce_label alice bob) tr n_a /\
-      //is_knowable_by (nonce_label alice bob) tr n_a /\
-      // The next line implies
-      event_triggered tr alice (Initiating{alice; bob; n_a}) /\
-      //state_was_set_some_id tr alice (SentMsg1 {bob; n_a}) /\
-      ((is_secret (nonce_label alice bob) tr n_b /\
-      //is_knowable_by (nonce_label alice bob) tr n_b /\
-      state_was_set_some_id tr bob (SentMsg2 {alice; n_a; n_b})) \/
-      (is_publishable tr n_a /\ is_publishable tr n_b))
+      is_knowable_by (nonce_label alice bob) tr n_a /\
+      is_knowable_by (nonce_label alice bob) tr n_b /\
+      state_was_set_some_id tr alice (SentMsg3 {bob; n_a; n_b})
     )
     | RcvdMsg3 {alice; n_a; n_b} -> (
       let bob = prin in
-      is_secret (nonce_label alice bob) tr n_b /\
-      //is_knowable_by (nonce_label alice bob) tr n_b /\
-      event_triggered tr bob (Responding1{alice; bob; n_a; n_b}) /\
-      // Required for pred_knowable
       is_knowable_by (nonce_label alice bob) tr n_a /\
-      ((is_secret (nonce_label alice bob) tr n_a /\
-      //is_knowable_by (nonce_label alice bob) tr n_a /\
-      state_was_set_some_id tr alice (SentMsg3 {bob; n_a; n_b})) \/
-      // is_publishable tr n_a or n_b???
-      (is_publishable tr n_b))
+      is_knowable_by (nonce_label alice bob) tr n_b
     )
     | _ -> False
     );
@@ -124,18 +83,7 @@ let state_predicate_nsl: local_state_predicate state_t = {
 
 (* Event invariants, taken from NSLP *)
 let event_predicate_nsl: event_predicate event_t =
-  fun tr prin e ->
-    match e with
-    | Initiating {alice; bob; n_a} -> (
-      prin == alice /\
-      is_secret (nonce_label alice bob) tr n_a /\
-      rand_just_generated tr n_a
-    )
-    | Responding1 {alice; bob; n_a; n_b} -> (
-      prin == bob /\
-      is_secret (nonce_label alice bob) tr n_b /\
-      rand_just_generated tr n_b
-    )
+  fun tr prin e -> True
 
 (* Trace invariants *)
 

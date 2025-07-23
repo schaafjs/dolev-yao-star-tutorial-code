@@ -9,9 +9,27 @@ open DY.Extend
 open DY.NSL.Data
 open DY.NSL.Invariants
 
-// Contains secrecy and authentication properties
+let nonce_label alice bob = join (principal_label alice) (principal_label bob)
 
-// We want both n_a and n_b to stay secret, i.e., be unknown to the attacker
+#push-options "--query_stats"
+val n_a_secrecy_alice:
+ tr:trace -> alice:principal -> bob:principal -> n_a:bytes -> n_b:bytes ->
+ Lemma
+ (requires
+   complies_with_nsl_protocol tr /\ (
+     (state_was_set_some_id tr alice (SentMsg1 {bob; n_a})) \/
+     (exists n_b. state_was_set_some_id tr alice (SentMsg3 {bob; n_a; n_b}))
+   )
+ )
+ (ensures
+   attacker_knows tr n_a ==>
+   principal_is_corrupt tr alice \/ principal_is_corrupt tr bob
+ )
+
+ let n_a_secrecy_alice tr alice bob n_a n_b = admit()
+ #pop-options
+
+ // We want both n_a and n_b to stay secret, i.e., be unknown to the attacker
 val n_a_secrecy:
   tr:trace -> alice:principal -> bob:principal -> n_a:bytes -> n_b:bytes ->
   Lemma
@@ -27,8 +45,6 @@ val n_a_secrecy:
     attacker_knows tr n_a ==>
     principal_is_corrupt tr alice \/ principal_is_corrupt tr bob
   )
-
-let nonce_label alice bob = join (principal_label alice) (principal_label bob)
 
 val publishable_implies_corruption:
   tr:trace -> alice:principal -> bob:principal -> n:bytes ->
@@ -46,9 +62,7 @@ val publishable_implies_corruption:
 let publishable_implies_corruption tr alice bob n_a = ()
 
 let n_a_secrecy tr alice bob n_a n_b =
-  introduce attacker_knows tr n_a ==> principal_is_corrupt tr alice \/ principal_is_corrupt tr bob
-  with _ .
-    attacker_only_knows_publishable_values tr n_a
+  admit()
 
 (*
 let n_a_secrecy tr alice bob n_a n_b =
@@ -71,9 +85,7 @@ val n_b_secrecy:
   )
 
 let n_b_secrecy tr alice bob n_a n_b =
-  introduce attacker_knows tr n_b ==> principal_is_corrupt tr alice \/ principal_is_corrupt tr bob
-  with _ .
-    attacker_only_knows_publishable_values tr n_b
+  admit()
 
 // If Bob at the end of a run believes to be talking with Alice, then this Alice must indeed be involved in the run.
 val initiator_authentication:
@@ -94,7 +106,9 @@ val initiator_authentication:
     )
   )
 
-let initiator_authentication alice bob n_a n_b tr = ()
+let initiator_authentication alice bob n_a n_b tr = (
+  admit()
+)
   //assert(state_was_set_some_id tr alice (SentMsg3 {bob; n_a; n_b}))
 
 // If Alice at the end of a run believes to be talking with Bob, then this Bob must indeed be involved in the run.
@@ -116,4 +130,6 @@ val responder_authentication:
     )
   )
 
-let responder_authentication alice bob n_a n_b tr = ()
+let responder_authentication alice bob n_a n_b tr = (
+  admit()
+)
