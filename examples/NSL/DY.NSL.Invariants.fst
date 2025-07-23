@@ -107,6 +107,8 @@ let state_predicate_nsl: local_state_predicate state_t = {
       is_secret (nonce_label alice bob) tr n_b /\
       //is_knowable_by (nonce_label alice bob) tr n_b /\
       event_triggered tr bob (Responding1{alice; bob; n_a; n_b}) /\
+      // Required for pred_knowable
+      is_knowable_by (nonce_label alice bob) tr n_a /\
       ((is_secret (nonce_label alice bob) tr n_a /\
       //is_knowable_by (nonce_label alice bob) tr n_a /\
       state_was_set_some_id tr alice (SentMsg3 {bob; n_a; n_b})) \/
