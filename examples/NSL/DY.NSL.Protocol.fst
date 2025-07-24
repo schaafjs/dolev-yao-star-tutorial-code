@@ -14,7 +14,7 @@ val send_msg1:
 
 let send_msg1 alice alice_public_keys_sid bob =
   // Generate nonce
-  let* n_a = gen_rand in
+  let* n_a = gen_rand_labeled (nonce_label alice bob) in
 
   let init_event = Initiating{alice; bob; n_a} in
   trigger_event alice init_event;*  
@@ -43,7 +43,7 @@ let receive_msg1_and_send_msg2 bob bob_private_keys_sid bob_public_keys_sid msg1
   let alice = msg1.alice in
   let n_a = msg1.n_a in
 
-  let* n_b = gen_rand in
+  let* n_b = gen_rand_labeled (nonce_label alice bob) in
 
   trigger_event bob (Responding1{alice; bob; n_a; n_b});*
 
@@ -67,7 +67,7 @@ let receive_msg2_and_send_msg3 alice alice_private_keys_sid alice_public_keys_si
   let Msg2 msg2 = msg2 in
   let bob = msg2.bob in
   let n_a = msg2.n_a in
-  let n_b = msg2.n_b in 
+  let n_b = msg2.n_b in
 
   // Check whether Alice has inited a session w/ principal bob and nonce n_a
   let*? (sid, current_state_alice) = lookup_state #state_t alice

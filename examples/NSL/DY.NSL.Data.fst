@@ -4,6 +4,8 @@ open Comparse
 open DY.Core
 open DY.Lib
 
+let nonce_label alice bob = join (principal_label alice) (principal_label bob)
+
 (* Messages *)
 
 [@@ with_bytes bytes]

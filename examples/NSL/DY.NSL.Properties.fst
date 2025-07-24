@@ -11,7 +11,6 @@ open DY.NSL.Invariants
 
 let nonce_label alice bob = join (principal_label alice) (principal_label bob)
 
-#push-options "--query_stats"
 val n_a_secrecy_alice:
  tr:trace -> alice:principal -> bob:principal -> n_a:bytes -> n_b:bytes ->
  Lemma
@@ -26,8 +25,13 @@ val n_a_secrecy_alice:
    principal_is_corrupt tr alice \/ principal_is_corrupt tr bob
  )
 
- let n_a_secrecy_alice tr alice bob n_a n_b = admit()
- #pop-options
+ let n_a_secrecy_alice tr alice bob n_a n_b = (
+  introduce attacker_knows tr n_a ==>
+   principal_is_corrupt tr alice \/ principal_is_corrupt tr bob
+   with _ .
+  (attacker_only_knows_publishable_values tr n_a)
+ )
+
 
  // We want both n_a and n_b to stay secret, i.e., be unknown to the attacker
 val n_a_secrecy:

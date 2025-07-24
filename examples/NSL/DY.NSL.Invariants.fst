@@ -3,6 +3,7 @@ module DY.NSL.Invariants
 open Comparse
 open DY.Core
 open DY.Lib
+open DY.Simplified
 open DY.Extend
 
 open DY.NSL.Data
@@ -30,7 +31,15 @@ let crypto_predicates_nsl : crypto_predicates = {
   
   pke_pred = {
     // Continue here
-    pred = (fun tr sk_usage pk msg -> True);
+    pred = (fun tr sk_usage pk msg -> 
+    (exists prin.
+    sk_usage == long_term_key_type_to_usage (LongTermPkeKey key_tag) prin /\
+
+    (match parse _ msg with
+    | Some (Msg2 {bob; n_a; n_b}) -> 
+    bytes_well_formed tr n_b /\
+    ((get_label tr n_b) `can_flow tr` (nonce_label prin bob))
+    | _ -> True)));
     pred_later = (fun tr1 tr2 sk_usage pk msg -> ());
   };
 }
@@ -56,7 +65,7 @@ let state_predicate_nsl: local_state_predicate state_t = {
     | SentMsg1 {bob; n_a} -> (
       let alice = prin in
       is_knowable_by (nonce_label alice bob) tr n_a /\
-      state_was_set_some_id tr alice (SentMsg1 {bob; n_a})
+      is_secret (nonce_label alice bob) tr n_a
     )
     | SentMsg2 {alice; n_a; n_b} -> (
       let bob = prin in
@@ -67,7 +76,7 @@ let state_predicate_nsl: local_state_predicate state_t = {
       let alice = prin in
       is_knowable_by (nonce_label alice bob) tr n_a /\
       is_knowable_by (nonce_label alice bob) tr n_b /\
-      state_was_set_some_id tr alice (SentMsg3 {bob; n_a; n_b})
+      is_secret (nonce_label alice bob) tr n_a
     )
     | RcvdMsg3 {alice; n_a; n_b} -> (
       let bob = prin in
